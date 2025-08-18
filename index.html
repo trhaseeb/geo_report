@@ -472,8 +472,38 @@
             } catch(e) { console.error("GeoData Error:", e); return null; }
         },
         stripHtml(html) {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            return doc.body.textContent || "";
+            try {
+                // Handle non-string inputs safely
+                if (html === null || html === undefined) return "";
+                
+                // Special handling for Event objects
+                if (html instanceof Event) {
+                    console.warn("Event object detected in stripHtml");
+                    return "[Event]";
+                }
+                
+                // Handle objects that might contain Events
+                if (typeof html === 'object') {
+                    // Try to get a meaningful string representation
+                    if (html.toString && html.toString() !== '[object Object]') {
+                        html = html.toString();
+                    } else {
+                        return "[Object]";
+                    }
+                }
+                
+                // Convert to string and check for [object Event]
+                const str = String(html);
+                if (str.includes('[object Event]')) {
+                    return str.replace(/\[object Event\]/g, '[Event]');
+                }
+                
+                const doc = new DOMParser().parseFromString(str, 'text/html');
+                return doc.body.textContent || "";
+            } catch (e) {
+                console.error("Error in stripHtml:", e);
+                return "";
+            }
         },
         formatDate(date) {
             if (!date) return '';
@@ -1831,7 +1861,7 @@
         createPointMarker(feature, latlng) {
             const style = this.getCategoryStyleForFeature(feature);
             if (style.shape === 'svg' && style.svg) {
-                const size = style.svgSize || 32; 
+                const size = style.svgSize || 32;
                 const iconHtml = `<div style="opacity: ${style.fillOpacity};">${style.svg.replace(/currentColor/g, style.fillColor)}</div>`;
                 return L.marker(latlng, { icon: L.divIcon({ html: iconHtml, className: 'custom-svg-icon', iconSize: [size, size], iconAnchor: [size/2, size/2] }) });
             }
@@ -2104,9 +2134,18 @@
 
             const closeModal = () => document.getElementById('modal').classList.add('hidden');
             document.getElementById('modal-cancel-btn').onclick = closeModal;
-            document.getElementById('modal-export-project').onclick = () => { this.exportProject(); closeModal(); };
-            document.getElementById('modal-export-geojson').onclick = () => { this.exportGeoJSON(); closeModal(); };
-            document.getElementById('modal-export-pdf').onclick = () => { App.PDFExport.generatePDF(); closeModal(); };
+            document.getElementById('modal-export-project').onclick = () => { 
+                try { this.exportProject(); } catch(e) { console.error(e); }
+                closeModal(); 
+            };
+            document.getElementById('modal-export-geojson').onclick = () => { 
+                try { this.exportGeoJSON(); } catch(e) { console.error(e); }
+                closeModal(); 
+            };
+            document.getElementById('modal-export-pdf').onclick = () => { 
+                try { App.PDFExport.generatePDF(); } catch(e) { console.error(e); }
+                closeModal(); 
+            };
         },
         async importProjectOrFeatures(e) {
             const file = e.target.files[0];
@@ -2292,8 +2331,55 @@
 
         // Utility helpers
         mmToPx(mm, dpi = 96) { return Math.round(mm * dpi / 25.4); },
-        updateProgress(msg) { try { App.UI.elements.loaderText.innerText = msg; } catch(_){} },
-        safeText(html) { return App.Utils.stripHtml(html || ''); },
+        updateProgress(msg) { 
+            try { 
+                App.UI.elements.loaderText.innerText = msg; 
+                console.log("PDF Export Progress:", msg);
+            } catch(e){
+                console.warn("Could not update progress:", e);
+            } 
+        },
+        safeText(text) {
+            // If text is null or undefined, return empty string
+            if (text === null || text === undefined) return '';
+            
+            // Check if it's an Event object or contains "[object Event]"
+            if (text instanceof Event || (typeof text === 'string' && text.includes('[object Event]'))) {
+                console.warn("Event object detected in text - replacing with safe value");
+                return '[Event]';
+            }
+            
+            // If it's an object but not a string, safely convert it to a string
+            let safeString = '';
+            try {
+                if (typeof text === 'object') {
+                    // Try to get a sensible string representation
+                    if (text.toString && text.toString() !== '[object Object]') {
+                        safeString = text.toString();
+                    } else if (text.name) {
+                        safeString = text.name;
+                    } else {
+                        // Last resort: stringify but handle circular references
+                        safeString = JSON.stringify(text, (key, value) => {
+                            if (value instanceof Event) return '[Event]';
+                            if (key && typeof value === 'object' && value !== null) {
+                                // Avoid circular references
+                                return '[Object]';
+                            }
+                            return value;
+                        });
+                    }
+                } else {
+                    safeString = String(text);
+                }
+            } catch (e) {
+                console.warn("Error converting value to safe string:", e);
+                safeString = '';
+            }
+            
+            // Strip HTML and return
+            return App.Utils.stripHtml(safeString || '');
+        },
         getSvgDefs() { return App.state.svgPatternDefs ? App.state.svgPatternDefs.innerHTML : ''; },
 
         async ensureLibraries() {
@@ -2309,12 +2395,28 @@
             const el = document.createElement('div');
             el.className = 'pdf-page';
             const padding = opts.paddingPx === 0 ? 0 : (opts.paddingPx || this.mmToPx(this.cfg.paddingMM));
-            el.style.cssText = `width:${w}px; height:${h}px; box-sizing:border-box; padding:${padding}px; font-family:Inter,Arial,sans-serif; background:${opts.bg||'#fff'}; color:#111; position:relative; overflow: hidden;`;
+            
+            // Set page container styles with a fixed height to ensure consistent layout
+            el.style.cssText = `
+                width:${w}px; 
+                height:${h}px; 
+                box-sizing:border-box; 
+                padding:${padding}px; 
+                font-family:Inter,Arial,sans-serif; 
+                background:${opts.bg||'#fff'}; 
+                color:#111; 
+                position:relative; 
+                overflow:hidden;
+                border:1px solid transparent; /* Debugging border */
+            `;
             
             const svgDefs = opts.svgDefs ? `<svg width="0" height="0" style="position:absolute;left:-1000px;"><defs>${opts.svgDefs}</defs></svg>` : '';
-            
             const reportTitle = this.safeText(document.getElementById('main-title')?.childNodes[0]?.nodeValue || 'Site Analysis Report');
-
+            
+            // Calculate the content area height to ensure footer stays at bottom
+            const footerHeight = 20; // in pixels
+            const contentHeight = h - (padding * 2) - footerHeight;
+            
             el.innerHTML = `
             <style>
                 *{box-sizing:border-box}
@@ -2328,14 +2430,41 @@
                 th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;vertical-align:top}
                 th{background:#f8fafc;font-weight:600;color:#4a5568}
                 .small{font-size:9px;color:#718096}
-                .footer{position:absolute;bottom:${padding/2}px;left:${padding}px;right:${padding}px;display:flex;justify-content:space-between;font-size:8px;color:#718096}
+                
+                /* Content wrapper to ensure proper page layout */
+                .content-wrapper {
+                    position: relative;
+                    min-height: ${contentHeight}px;
+                    max-height: ${contentHeight}px;
+                    overflow: hidden;
+                }
+                
+                /* Footer styling with absolute positioning */
+                .footer {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    height: ${footerHeight}px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-top: 1px solid #e2e8f0;
+                    padding-top: 5px;
+                    font-size: 8px;
+                    color: #718096;
+                }
+                
+                /* Improved grid layout */
                 .grid-2-col{display:grid;grid-template-columns:1fr 1fr;gap:15px}
                 .category-block{break-inside:avoid;margin-bottom:12px}
                 .legend-features{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;font-size:10px}
                 .legend-item{display:flex;align-items:center;gap:6px;padding:4px;border-radius:3px;background:#fff}
                 .legend-swatch{width:20px;height:20px;border:1px solid #ccc;border-radius:3px;flex:0 0 auto}
                 .map-title{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:18px;background:rgba(255,255,255,0.9);padding:8px 16px;border:1px solid #718096;border-radius:4px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.1);z-index:1000}
-                .feature-map{width:100%;height:150px;border:1px solid #000;margin-top:8px;border-radius:4px;overflow:hidden}
+                
+                /* Feature elements */
+                .feature-map{width:100%;height:150px;border:1px solid #000;margin-top:8px;border-radius:4px;overflow:hidden;position:relative}
                 .feature-info-section{border:1px solid #e2e8f0;border-radius:4px;padding:8px;background:#f8fafc;margin-bottom:8px}
                 .observation-list{margin:8px 0;padding-left:12px;border-left:3px solid #cbd5e0}
                 .observation-item{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #edf2f7}
@@ -2347,11 +2476,31 @@
                 .severity-medium{background-color:#fef9c3;color:#854d0e}
                 .severity-high{background-color:#fee2e2;color:#991b1b}
                 .severity-critical{background-color:#fca5a5;color:#7f1d1d}
-                .feature-blocks-container { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
-                .feature-block { page-break-inside: avoid; margin-bottom: 10px; }
+                
+                /* Feature block container with proper spacing */
+                .feature-blocks-container { 
+                    display: flex; 
+                    flex-direction: column; 
+                    gap: 20px; 
+                }
+                
+                /* Individual feature block */
+                .feature-block { 
+                    page-break-inside: avoid; 
+                    margin-bottom: 20px; 
+                    padding-bottom: 15px; 
+                    border-bottom: 1px dashed #e2e8f0; 
+                }
+                
+                /* Last feature block shouldn't have a border or margin */
+                .feature-block:last-child { 
+                    margin-bottom: 0; 
+                    padding-bottom: 0;
+                    border-bottom: none;
+                }
             </style>
             ${svgDefs}
-            ${html}
+            <div class="content-wrapper">${html}</div>
             <div class="footer">
                 <span>${opts.footerTitle || reportTitle}</span>
                 <span class="page-number-placeholder"></span>
@@ -2366,6 +2515,36 @@
             const heightPx = this.mmToPx(hMM, 96 * scale);
             
             try {
+                // Before capturing, ensure all images and maps are loaded
+                this.updateProgress("Preparing page elements for capture...");
+                
+                // Find all images and maps in the element
+                const images = el.querySelectorAll('img');
+                const maps = el.querySelectorAll('.mini-map');
+                const svgs = el.querySelectorAll('svg');
+                
+                // Wait for images to load
+                const imagePromises = Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        img.onload = () => resolve();
+                        img.onerror = (e) => {
+                            console.warn('Image failed to load:', e);
+                            resolve(); // Resolve anyway to continue with capture
+                        };
+                        // Set a timeout in case the image never loads/errors
+                        setTimeout(resolve, 1000);
+                    });
+                });
+                
+                // Give a little time for maps to render completely
+                if (maps.length > 0) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                
+                // Wait for all images to finish loading (or timeout)
+                await Promise.all(imagePromises);
+                
                 const options = {
                     width: widthPx, height: heightPx, 
                     style: { 
@@ -2374,16 +2553,32 @@
                         width: `${widthPx/scale}px`,
                         height: `${heightPx/scale}px`
                     }, 
-                    cacheBust: false, 
-                    quality: 1, bgcolor: '#ffffff',
+                    cacheBust: true, // Force refresh of images
+                    quality: 1, 
+                    bgcolor: '#ffffff',
                 };
                 
-                const dataUrl = await domtoimage.toPng(el, options);
-                document.body.removeChild(el);
+                // Try to capture the image with a timeout
+                const dataUrl = await Promise.race([
+                    domtoimage.toPng(el, options),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error("Capture timeout after 10s")), 10000)
+                    )
+                ]);
+                
+                if (document.body.contains(el)) document.body.removeChild(el);
                 return dataUrl;
             } catch(error) {
                 console.error("Capture error:", error);
+                this.updateProgress(`Capture error: ${error.message}`);
+                
                 if (document.body.contains(el)) document.body.removeChild(el);
+                
+                // Create a fallback image with error message
+                if (error.toString().includes("[object Event]")) {
+                    console.warn("Found [object Event] error, likely an event serialization issue");
+                }
+                
                 throw error;
             }
         },
@@ -2501,72 +2696,331 @@
         
         // Feature pages
         buildFeatureDetailBlockHTML(feature) {
-            const geoData = App.Utils.calculateGeoData(feature) || [];
-            const rows = geoData.map(g=>`<tr><th>${g.label}</th><td>${g.value}</td></tr>`).join('') || '<tr><td colspan="2" class="small">No geometry stats</td></tr>';
-            const obs = feature.properties.observations || [];
-            
-            let observationsHtml = obs.length ? `<div class="observation-list">${obs.map(o => {
-                const imagesHtml = (o.images && o.images.length > 0) ? `<div class="observation-images">${o.images.filter(img => img && img.src).map(img => `<div><img src="${img.src}" alt="${this.safeText(img.caption)}"><p class="small">${this.safeText(img.caption)}</p></div>`).join('')}</div>` : '';
+            try {
+                if (!feature || !feature.properties) {
+                    return `<div class="feature-block"><h3>Invalid Feature Data</h3><p>Missing feature properties</p></div>`;
+                }
+                
+                // Process geometric data safely
+                let rows = '<tr><td colspan="2" class="small">No geometry stats</td></tr>';
+                try {
+                    const geoData = App.Utils.calculateGeoData(feature) || [];
+                    if (geoData.length > 0) {
+                        rows = geoData.map(g => {
+                            // Extra safety to make sure we don't have any event objects
+                            let label = this.safeText(String(g.label || 'Statistic'));
+                            let value = this.safeText(String(g.value || ''));
+                            
+                            // Check for [object Event] pattern
+                            if (value.includes('[object Event]')) {
+                                return ''; // Skip this row
+                            }
+                            
+                            return `<tr><th>${label}</th><td>${value}</td></tr>`;
+                        }).join('');
+                    }
+                } catch (geoError) {
+                    console.error("Error calculating geometry data:", geoError);
+                }
+                
+                // Process observations safely
+                const obs = Array.isArray(feature.properties.observations) ? feature.properties.observations : [];
+                let observationsHtml = '<div class="small" style="font-style:italic">No observations</div>';
+                
+                if (obs.length > 0) {
+                    try {
+                        const obsItems = obs.map(o => {
+                            try {
+                                // Handle image rendering safely
+                                let imagesHtml = '';
+                                if (Array.isArray(o.images) && o.images.length > 0) {
+                                    const validImages = o.images.filter(img => img && typeof img === 'object' && img.src);
+                                    if (validImages.length > 0) {
+                                        imagesHtml = `<div class="observation-images">
+                                            ${validImages.map(img => {
+                                                // Make sure the src and caption are safe strings
+                                                const safeSrc = this.safeText(String(img.src || ''));
+                                                const safeCaption = this.safeText(String(img.caption || ''));
+                                                if (!safeSrc) return ''; // Skip invalid images
+                                                
+                                                return `<div><img src="${safeSrc}" alt="${safeCaption}">
+                                                <p class="small">${safeCaption}</p></div>`;
+                                            }).join('')}
+                                        </div>`;
+                                    }
+                                }
+                                
+                                // Safe observation values
+                                const safeType = this.safeText(String(o.observationType || 'Observation'));
+                                const safeSeverity = this.safeText(String(o.severity || 'low').toLowerCase());
+                                const safeSeverityLabel = this.safeText(String(o.severity || 'Low'));
+                                const safeRecommendation = this.safeText(String(o.recommendation || 'N/A'));
+                                
+                                // Return the structured observation item
+                                return `
+                                <div class="observation-item">
+                                    <div><strong>${safeType}</strong>
+                                    <span class="severity-tag severity-${safeSeverity}">${safeSeverityLabel}</span></div>
+                                    <div class="small" style="margin:4px 0;"><strong>Recommendation:</strong> ${safeRecommendation}</div>
+                                    ${imagesHtml}
+                                </div>`;
+                            } catch (obsItemErr) {
+                                console.error("Error processing observation item:", obsItemErr);
+                                return `<div class="observation-item"><div>Error processing observation</div></div>`;
+                            }
+                        }).join('');
+                        
+                        observationsHtml = `<div class="observation-list">${obsItems}</div>`;
+                    } catch (obsErr) {
+                        console.error("Error processing observations:", obsErr);
+                    }
+                }
+                
+                // Generate a unique and safe ID for the map container
+                const featureId = feature.properties._internalId || 
+                                 (typeof feature.id !== 'undefined' ? feature.id : Math.random().toString(36).substring(2, 9));
+                const snapshotId = `feature-snapshot-${String(featureId).replace(/[^a-zA-Z0-9-_]/g, '')}`;
+                
+                // Safety check for any property values
+                const safeName = this.safeText(String(feature.properties.Name || 'Unnamed Feature'));
+                const safeCategory = this.safeText(String(feature.properties.category || 'Uncategorized'));
+                const safeDescription = this.safeText(String(feature.properties.Description || 'N/A'));
+                
                 return `
-                <div class="observation-item">
-                    <div><strong>${this.safeText(o.observationType) || 'Observation'}</strong><span class="severity-tag severity-${(o.severity || 'low').toLowerCase()}">${o.severity || 'Low'}</span></div>
-                    <div class="small" style="margin:4px 0;"><strong>Recommendation:</strong> ${this.safeText(o.recommendation || 'N/A')}</div>
-                    ${imagesHtml}
-                </div>`
-            }).join('')}</div>` : '<div class="small" style="font-style:italic">No observations</div>';
-            
-            const snapshotId = `feature-snapshot-${feature.properties._internalId || Math.random().toString(36).substring(2, 9)}`;
-            
-            return `
-                <div class="feature-block">
-                    <h4>${this.safeText(feature.properties.Name) || 'Unnamed Feature'}</h4>
-                     <div class="grid-2-col">
-                        <div class="feature-info-section">
-                            <table>
-                                <tr><th>Category</th><td>${this.safeText(feature.properties.category)}</td></tr>
-                                <tr><th>Description</th><td>${this.safeText(feature.properties.Description) || 'N/A'}</td></tr>
-                                ${rows}
-                            </table>
+                    <div class="feature-block">
+                        <h3>${safeName}</h3>
+                        <div class="grid-2-col">
+                            <div class="feature-info-section">
+                                <table>
+                                    <tr><th>Category</th><td>${safeCategory}</td></tr>
+                                    <tr><th>Description</th><td>${safeDescription}</td></tr>
+                                    ${rows}
+                                </table>
+                            </div>
+                            <div class="feature-info-section">
+                                <h3>Observations</h3>
+                                ${observationsHtml}
+                            </div>
                         </div>
-                        <div class="feature-info-section">
-                            <h3>Observations</h3>
-                            ${observationsHtml}
-                        </div>
+                        <div class="feature-map" id="${snapshotId}"></div>
                     </div>
-                    <div class="feature-map" id="${snapshotId}"></div>
-                </div>
-            `;
+                `;
+            } catch (error) {
+                console.error("Error building feature detail block:", error);
+                return `<div class="feature-block"><h3>Error Rendering Feature</h3><p>${this.safeText(String(feature?.properties?.Name || 'Unknown feature'))}</p></div>`;
+            }
         },
 
         async renderMiniMap(container, feature) {
-            if (!container || !feature.geometry) return;
-            const map = L.map(container, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, renderer: L.svg() });
+            let map = null;
+            let layer = null;
             
-            const svg = map.getRenderer(map)._container;
-            if (svg) svg.appendChild(App.state.svgPatternDefs.cloneNode(true));
-
-            if (App.state.data.ortho?.georaster) {
-                new GeoRasterLayer({ georaster: App.state.data.ortho.georaster, opacity: 1, resolution: 128 }).addTo(map);
-            } else {
-                L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 22, subdomains:['mt0','mt1','mt2','mt3'], crossOrigin: 'anonymous' }).addTo(map);
-            }
+            // Assign a unique ID to each container for reference if something fails
+            const containerId = container.id || `map-${Math.random().toString(36).substring(2, 9)}`;
+            if (!container.id) container.id = containerId;
             
-            const layer = L.geoJSON(feature, {
-                style: f => App.CategoryManager.getCategoryStyleForFeature(f),
-                pointToLayer: (f, latlng) => App.CategoryManager.createPointMarker(f, latlng)
-            }).addTo(map);
-            
-            if (layer.getBounds().isValid()) {
+            try {
+                // Check for required elements
+                if (!container || !feature || !feature.geometry) {
+                    console.warn("Missing required elements for mini map:", {
+                        containerId,
+                        hasContainer: !!container,
+                        hasFeature: !!feature, 
+                        hasGeometry: feature && !!feature.geometry
+                    });
+                    this.fallbackMapDisplay(container, "Missing required elements");
+                    return;
+                }
+                
+                // Create map with error handling
+                map = L.map(container, { 
+                    zoomControl: false, 
+                    attributionControl: false, 
+                    dragging: false, 
+                    scrollWheelZoom: false, 
+                    renderer: L.svg(),
+                    keyboard: false,
+                    touchZoom: false,
+                    doubleClickZoom: false
+                });
+                
+                // Create panes with specific z-indices
+                map.createPane('basemap');
+                map.getPane('basemap').style.zIndex = 400;
+                map.createPane('vectors');
+                map.getPane('vectors').style.zIndex = 650;
+                
+                // Add SVG defs for patterns to the map's SVG container
                 try {
-                    map.fitBounds(layer.getBounds().pad(0.2));
-                } catch (e) {
-                    console.warn(`Could not fit bounds for mini-map on feature: ${feature.properties.Name || 'Unnamed'}`, e);
-                    try { map.setView(layer.getBounds().getCenter(), 18); } catch (e2) {
-                        console.error("Fallback setView also failed for mini-map.", e2);
+                    const svg = map.getRenderer(map)._container;
+                    if (svg && App.state.svgPatternDefs) {
+                        // Clone the SVG patterns for this map
+                        const clonedDefs = App.state.svgPatternDefs.cloneNode(true);
+                        svg.appendChild(clonedDefs);
+                        svg.style.zIndex = 650; // Ensure SVG renderer is on top
+                    }
+                } catch (svgErr) {
+                    console.warn(`Error applying SVG patterns to mini map ${containerId}:`, svgErr);
+                    // Continue without SVG patterns
+                }
+    
+                // Add base layers with specific pane
+                let baseLayerAdded = false;
+                try {
+                    if (App.state.data.ortho?.georaster) {
+                        new GeoRasterLayer({ 
+                            georaster: App.state.data.ortho.georaster, 
+                            opacity: 1, 
+                            resolution: 128,
+                            pane: 'basemap' 
+                        }).addTo(map);
+                        baseLayerAdded = true;
+                    } else {
+                        // Only try to add the tile layer if we don't have a georaster
+                        try {
+                            L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { 
+                                maxZoom: 22, 
+                                subdomains:['mt0','mt1','mt2','mt3'], 
+                                crossOrigin: 'anonymous',
+                                pane: 'basemap'
+                            }).addTo(map);
+                            baseLayerAdded = true;
+                        } catch (tileErr) {
+                            console.warn(`Error adding tile layer to mini map ${containerId}:`, tileErr);
+                        }
+                    }
+                } catch (baseErr) {
+                    console.warn(`Error adding base layer to mini map ${containerId}:`, baseErr);
+                }
+                
+                // If we couldn't add any base layer, add a fallback white background
+                if (!baseLayerAdded) {
+                    try {
+                        L.rectangle([[-90,-180], [90,180]], {
+                            color: '#cccccc',
+                            weight: 1,
+                            fillColor: '#ffffff',
+                            fillOpacity: 1,
+                            pane: 'basemap'
+                        }).addTo(map);
+                    } catch (fallbackErr) {
+                        console.warn(`Error adding fallback background to mini map ${containerId}:`, fallbackErr);
                     }
                 }
+                
+                // Add vector layer on top
+                try {
+                    layer = L.geoJSON(feature, {
+                        pane: 'vectors',
+                        style: f => {
+                            try {
+                                const style = App.CategoryManager.getCategoryStyleForFeature(f) || {};
+                                style.weight = (style.weight || 3) * 1.5; // Make lines slightly thicker for visibility
+                                if (style.fillOpacity) style.fillOpacity = Math.min(style.fillOpacity * 1.3, 1); // Increase fill opacity
+                                return style;
+                            } catch (styleErr) {
+                                console.warn(`Error applying style to feature in mini map ${containerId}:`, styleErr);
+                                return { color: '#ff0000', weight: 3, fillOpacity: 0.2, fillColor: '#ff0000' };
+                            }
+                        },
+                        pointToLayer: (f, latlng) => {
+                            try {
+                                return App.CategoryManager.createPointMarker(f, latlng);
+                            } catch (markerErr) {
+                                console.warn(`Error creating point marker in mini map ${containerId}:`, markerErr);
+                                return L.circleMarker(latlng, { radius: 8, color: '#ff0000', fillColor: '#ff0000', fillOpacity: 0.6 });
+                            }
+                        },
+                        // Handle all events safely
+                        onEachFeature: (f, l) => {
+                            // Remove all event handlers to prevent [object Event] issues
+                            l.off('click');
+                            l.off('mouseover');
+                            l.off('mouseout');
+                        }
+                    }).addTo(map);
+                    
+                    // Set map bounds if layer was created successfully
+                    if (layer && layer.getBounds().isValid()) {
+                        map.fitBounds(layer.getBounds().pad(0.2));
+                    } else {
+                        // Fallback: if we can't get bounds from the layer
+                        if (feature.geometry.type === 'Point') {
+                            const coords = feature.geometry.coordinates;
+                            map.setView([coords[1], coords[0]], 18);
+                        } else {
+                            // Default view if all else fails
+                            map.setView([0, 0], 1);
+                        }
+                    }
+                } catch (layerErr) {
+                    console.warn(`Error adding GeoJSON layer to mini map ${containerId}:`, layerErr);
+                    this.fallbackMapDisplay(container, "Error rendering feature");
+                }
+                
+                // Wait for tiles to load
+                await Promise.race([
+                    new Promise(r => setTimeout(r, 1500)), // Maximum wait time
+                    new Promise(resolve => {
+                        if (!map || !layer) {
+                            resolve();
+                            return;
+                        }
+                        
+                        // Set up a one-time load event handler
+                        const checkLoaded = () => {
+                            resolve();
+                        };
+                        
+                        // Schedule the check
+                        setTimeout(checkLoaded, 500);
+                    })
+                ]);
+                
+            } catch (mapErr) {
+                console.error(`Error rendering mini map ${containerId}:`, mapErr);
+                this.fallbackMapDisplay(container, "Map rendering error");
             }
-            await new Promise(r => setTimeout(r, 1500)); // Settle time
+            
+            // Extra safety to make sure maps don't have event listeners
+            if (map) {
+                try {
+                    // Disable all event handlers
+                    map.off();
+                    map.eachLayer(l => l.off());
+                } catch (e) {
+                    console.warn(`Error disabling events on map ${containerId}:`, e);
+                }
+            }
+        },
+        
+        // Fallback when map rendering fails
+        fallbackMapDisplay(container, message = "Map unavailable") {
+            try {
+                // Clear the container
+                while (container.firstChild) {
+                    container.removeChild(container.firstChild);
+                }
+                
+                // Style the container
+                Object.assign(container.style, {
+                    backgroundColor: '#f0f0f0',
+                    border: '1px solid #ccc',
+                    color: '#666',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '10px',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '12px',
+                    textAlign: 'center'
+                });
+                
+                // Add fallback message
+                container.textContent = message;
+            } catch (e) {
+                console.error("Error creating fallback map display:", e);
+            }
         },
 
         // Main Orchestration
@@ -2635,33 +3089,150 @@
                     return acc;
                 }, {});
 
-                for (const categoryName of Object.keys(featuresByCategory)) {
+                // Sort features within each category by name
+                for (const categoryName in featuresByCategory) {
+                    featuresByCategory[categoryName].sort((a, b) => {
+                        const nameA = a.properties.Name || '';
+                        const nameB = b.properties.Name || '';
+                        return nameA.localeCompare(nameB);
+                    });
+                }
+
+                const sortedCategoryNames = Object.keys(featuresByCategory).sort((a, b) => a.localeCompare(b));
+
+                for (const categoryName of sortedCategoryNames) {
                     const categoryFeatures = featuresByCategory[categoryName];
-                    let pageContent = `<h1>Feature Details: ${categoryName}</h1>`;
-                    let featuresOnPage = 0;
+                    let featuresForThisPage = [];
+                    let isFirstPageOfCategory = true;
 
                     for (let i = 0; i < categoryFeatures.length; i++) {
                         const feature = categoryFeatures[i];
-                        this.updateProgress(`Rendering details for: ${feature.properties.Name || `Feature ${i+1}`}`);
-                        pageContent += this.buildFeatureDetailBlockHTML(feature);
-                        featuresOnPage++;
+                        this.updateProgress(`Processing: ${feature.properties.Name || `Feature ${i+1}`}`);
 
-                        if (featuresOnPage === 2 || i === categoryFeatures.length - 1) {
-                            const page = this.buildPage(pageContent, this.cfg.a4.w, this.cfg.a4.h, { svgDefs: this.getSvgDefs(), footerTitle: title });
-                            
-                            for (let j = i - featuresOnPage + 1; j <= i; j++) {
-                                const f = categoryFeatures[j];
-                                const snapshotId = `feature-snapshot-${f.properties._internalId || Math.random().toString(36).substring(2, 9)}`;
-                                const mapContainer = page.querySelector(`#${snapshotId}`);
-                                if (mapContainer) await this.renderMiniMap(mapContainer, f);
+                        // Add the current feature to the page collection
+                        featuresForThisPage.push(feature);
+
+                        const pageHeader = isFirstPageOfCategory
+                            ? `<h1>Feature Details: ${categoryName}</h1>`
+                            : `<h1>Feature Details: ${categoryName} (continued)</h1>`;
+
+                        // Use a temporary, invisible page to measure content height
+                        const tempHtml = `${pageHeader}<div class="feature-blocks-container">${featuresForThisPage.map(f => this.buildFeatureDetailBlockHTML(f)).join('')}</div>`;
+                        const tempPage = this.buildPage(tempHtml, this.cfg.a4.w, this.cfg.a4.h, { 
+                            svgDefs: this.getSvgDefs(), 
+                            footerTitle: title 
+                        });
+                        
+                        // Hide the temp page but append it to calculate dimensions
+                        tempPage.style.visibility = 'hidden';
+                        tempPage.style.position = 'absolute';
+                        tempPage.style.zIndex = '-1000';
+                        document.body.appendChild(tempPage);
+                        
+                        // Get content wrapper to check its overflow
+                        const contentWrapper = tempPage.querySelector('.content-wrapper');
+                        
+                        // Check if content exceeds the content area (precise calculation)
+                        const isOverflowing = contentWrapper.scrollHeight > contentWrapper.clientHeight;
+                        document.body.removeChild(tempPage);
+
+                        let endOfPage = false;
+                        
+                        // Enforce 4-5 features per page, with overflow handling
+                        if (isOverflowing && featuresForThisPage.length > 1) {
+                            // If content overflows and we have more than one feature, move the last feature to next page
+                            featuresForThisPage.pop(); // remove last feature
+                            i--; // re-process it on the next page
+                            endOfPage = true;
+                        } else if (featuresForThisPage.length >= 4) {
+                            // Target 4-5 features per page - at 5 always end page, at 4 end if more features coming
+                            if (featuresForThisPage.length === 5 || (featuresForThisPage.length === 4 && i < categoryFeatures.length - 1)) {
+                                endOfPage = true;
                             }
+                        } else if (i === categoryFeatures.length - 1) {
+                            // If this is the last feature in the category, end the page
+                            endOfPage = true;
+                        }
 
-                            const img = await this.captureElement(page, this.cfg.a4.w, this.cfg.a4.h, this.cfg.captureScale);
-                            doc.addPage(undefined, 'portrait');
-                            doc.addImage(img, 'PNG', 0, 0, this.cfg.a4.w, this.cfg.a4.h);
+                        if (endOfPage) {
+                            try {
+                                // First, generate all the HTML content safely
+                                const featureBlocksHTML = featuresForThisPage.map(f => {
+                                    try {
+                                        // Explicitly clone the feature to ensure there are no event references
+                                        const cleanFeature = JSON.parse(JSON.stringify(f, (key, value) => {
+                                            // Filter out any Event objects or functions
+                                            if (value instanceof Event) return "[Event]";
+                                            if (typeof value === 'function') return "[Function]";
+                                            return value;
+                                        }));
+                                        return this.buildFeatureDetailBlockHTML(cleanFeature);
+                                    } catch(err) {
+                                        console.error(`Error generating HTML for feature ${f?.properties?.Name || 'unnamed'}:`, err);
+                                        return `<div class="feature-block"><h3>Error rendering feature</h3></div>`;
+                                    }
+                                }).join('');
+                                
+                                // Create a container with proper header and feature blocks
+                                const finalHtml = `
+                                    ${pageHeader}
+                                    <div class="feature-blocks-container">
+                                        ${featureBlocksHTML}
+                                    </div>
+                                `;
+                                
+                                // Create the page with proper structure and content
+                                const page = this.buildPage(finalHtml, this.cfg.a4.w, this.cfg.a4.h, { 
+                                    svgDefs: this.getSvgDefs(), 
+                                    footerTitle: String(title || 'Site Analysis Report')
+                                });
+                                
+                                this.updateProgress(`Capturing page with ${featuresForThisPage.length} feature(s)...`);
+                                
+                                // Render mini maps for each feature - wrapped in try/catch
+                                for (const f of featuresForThisPage) {
+                                    try {
+                                        const snapshotId = `feature-snapshot-${f.properties._internalId || Math.random().toString(36).substring(2, 9)}`;
+                                        const mapContainer = page.querySelector(`#${snapshotId}`);
+                                        if (mapContainer) {
+                                            await this.renderMiniMap(mapContainer, f);
+                                        }
+                                    } catch(mapErr) {
+                                        console.error(`Error rendering map for feature ${f.properties.Name || 'unnamed'}:`, mapErr);
+                                    }
+                                }
+                                
+                                // Wait to ensure all map tiles and vector layers are rendered completely
+                                await new Promise(r => setTimeout(r, 1000)); // Increased to 1000ms for better rendering
+                            } catch (pageErr) {
+                                console.error("Error processing feature page:", pageErr);
+                                this.updateProgress(`Error processing page: ${pageErr.message}`);
+                            }
                             
-                            pageContent = `<h1>Feature Details: ${categoryName} (continued)</h1>`;
-                            featuresOnPage = 0;
+                            // Capture the page and add to PDF with error handling
+                            try {
+                                this.updateProgress(`Capturing page image...`);
+                                const img = await this.captureElement(page, this.cfg.a4.w, this.cfg.a4.h, this.cfg.captureScale);
+                                doc.addPage(undefined, 'portrait');
+                                doc.addImage(img, 'PNG', 0, 0, this.cfg.a4.w, this.cfg.a4.h);
+                            } catch (captureErr) {
+                                console.error("Error capturing page:", captureErr);
+                                this.updateProgress(`Error capturing page: ${captureErr.message}`);
+                                
+                                // Add an error page instead
+                                doc.addPage(undefined, 'portrait');
+                                doc.setFontSize(16);
+                                doc.setTextColor(255, 0, 0);
+                                doc.text("Error capturing page content", this.cfg.paddingMM, this.cfg.paddingMM + 10);
+                                doc.setFontSize(12);
+                                doc.setTextColor(0, 0, 0);
+                                doc.text(`Category: ${categoryName}`, this.cfg.paddingMM, this.cfg.paddingMM + 20);
+                                doc.text(`Features: ${featuresForThisPage.length}`, this.cfg.paddingMM, this.cfg.paddingMM + 30);
+                            }
+                            
+                            // Reset for next page
+                            featuresForThisPage = [];
+                            isFirstPageOfCategory = false;
                         }
                     }
                 }
@@ -2674,8 +3245,11 @@
                     doc.setFontSize(8);
                     doc.setTextColor(100);
                     const text = `Page ${i} of ${pageCount}`;
+                    
+                    // Calculate positions to align with footer
                     const x = doc.internal.pageSize.getWidth() - this.cfg.paddingMM;
                     const y = doc.internal.pageSize.getHeight() - (this.cfg.paddingMM / 2);
+                    
                     doc.text(text, x, y, { align: 'right' });
                 }
 
