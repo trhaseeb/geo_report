@@ -677,7 +677,12 @@
             App.state.svgPatternDefs = L.SVG.create('defs');
             svg.appendChild(App.state.svgPatternDefs);
             
-            L.control.rotate({position: 'topright'}).addTo(map);
+            // Add rotation control if available
+            if (L.control && L.control.rotate) {
+                L.control.rotate({position: 'topright'}).addTo(map);
+            } else {
+                console.warn('Leaflet rotation control not available - rotation features may be limited to manual slider control');
+            }
 
             App.state.projectBoundary.layer = new L.FeatureGroup().addTo(map);
             App.state.geojsonLayer = new L.FeatureGroup().addTo(map);
@@ -697,14 +702,22 @@
             map.on(L.Draw.Event.EDITED, App.Events.handleFeaturesEdited);
             map.on('overlayadd overlayremove', App.Events.handleOverlayToggle);
             map.on('popupopen', App.Events.handlePopupOpen);
-            map.on('rotate', () => {
-                const rotation = Math.round(map.getBearing());
-                App.state.mapRotation = rotation;
-                document.getElementById('rotation-value').innerText = `${rotation}°`;
-                document.getElementById('rotation-input').value = rotation;
-                // IMPROVEMENT: Update markers to stay upright when map rotates
-                this.updateMarkerRotations();
-            });
+            
+            // Only add rotation event handler if rotation is supported
+            if (typeof map.getBearing === 'function') {
+                map.on('rotate', () => {
+                    const rotation = Math.round(map.getBearing());
+                    App.state.mapRotation = rotation;
+                    const rotationValueEl = document.getElementById('rotation-value');
+                    const rotationInputEl = document.getElementById('rotation-input');
+                    if (rotationValueEl) rotationValueEl.innerText = `${rotation}°`;
+                    if (rotationInputEl) rotationInputEl.value = rotation;
+                    // IMPROVEMENT: Update markers to stay upright when map rotates
+                    this.updateMarkerRotations();
+                });
+            } else {
+                console.warn('Map rotation not supported - getBearing method not available');
+            }
         },
         renderGeoJSONLayer() {
             App.state.geojsonLayer.clearLayers();
@@ -753,6 +766,8 @@
         // IMPROVEMENT: New function to update marker rotations efficiently
         updateMarkerRotations() {
             const rotation = App.state.mapRotation;
+            if (!App.state.featureIdToLayerMap) return;
+            
             App.state.featureIdToLayerMap.forEach(layer => {
                 // Check if the layer is a marker created by the L.rotatedMarker plugin
                 if (layer instanceof L.Marker && typeof layer.setRotationAngle === 'function') {
@@ -938,7 +953,13 @@
             App.state.showOnlyWithObservations = false;
             App.state.categoryVisibility = {};
             App.state.mapRotation = 0;
-            App.state.map.setBearing(0);
+            if (App.state.map && typeof App.state.map.setBearing === 'function') {
+                App.state.map.setBearing(0);
+            }
+            const rotationValueEl = document.getElementById('rotation-value');
+            const rotationInputEl = document.getElementById('rotation-input');
+            if (rotationValueEl) rotationValueEl.innerText = '0°';
+            if (rotationInputEl) rotationInputEl.value = 0;
             document.getElementById('show-only-with-observations-toggle').checked = false;
             document.getElementById('main-title').childNodes[0].nodeValue = 'Site Analysis Report ';
             document.getElementById('main-description').innerHTML = 'An interactive overview of the site features and raster data.';
@@ -989,7 +1010,13 @@
             document.getElementById('define-boundary-btn').onclick = () => this.startBoundaryDraw();
             document.getElementById('rotation-input').addEventListener('input', e => {
                 const rotation = parseInt(e.target.value);
-                App.state.map.setBearing(rotation);
+                App.state.mapRotation = rotation;
+                const rotationValueEl = document.getElementById('rotation-value');
+                if (rotationValueEl) rotationValueEl.innerText = `${rotation}°`;
+                if (App.state.map && typeof App.state.map.setBearing === 'function') {
+                    App.state.map.setBearing(rotation);
+                    App.Map.updateMarkerRotations();
+                }
             });
             document.getElementById('lock-setup-btn').onclick = () => this.lockSetup();
         },
@@ -1670,7 +1697,7 @@
                 return L.circleMarker(latlng, { ...style, radius: (style.size || 16) / 2 });
             }
             if (typeof L.rotatedMarker !== 'function') {
-                console.error("L.rotatedMarker is not loaded. Falling back to circle marker.");
+                console.warn("L.rotatedMarker is not loaded. Falling back to circle marker.");
                 return L.circleMarker(latlng, { ...style, radius: (style.size || 16) / 2 });
             }
             const size = style.svgSize || style.size || 24;
@@ -1687,6 +1714,9 @@
                 iconHtml = `<div style="background-color:${style.fillColor}; opacity: ${style.fillOpacity}; border: ${style.weight}px solid ${style.color}; width:${size}px;height:${size}px;border-radius:2px;"></div>`;
             } else if (style.shape === 'triangle') {
                 iconHtml = `<svg viewbox="0 0 24 24" width="${size}" height="${size}" style="opacity: ${style.fillOpacity};"><path d="M12 2 L2 22 L22 22 Z" fill="${style.fillColor}" stroke="${style.color}" stroke-width="${style.weight*24/size}"></path></svg>`;
+            } else {
+                // Default circular icon for any other shape
+                iconHtml = `<div style="background-color:${style.fillColor}; opacity: ${style.fillOpacity}; border: ${style.weight}px solid ${style.color}; width:${size}px;height:${size}px;border-radius:50%;"></div>`;
             }
             return L.rotatedMarker(latlng, {
                 icon: L.divIcon({
@@ -1972,9 +2002,18 @@
                 App.state.data.geojson.data = data.geojson || { type: 'FeatureCollection', features: [] };
                 App.state.mapRotation = data.mapRotation || 0;
                 App.state.isSetupComplete = data.isSetupComplete || false;
+                
+                // Update rotation UI elements
+                const rotationValueEl = document.getElementById('rotation-value');
+                const rotationInputEl = document.getElementById('rotation-input');
+                if (rotationValueEl) rotationValueEl.innerText = `${App.state.mapRotation}°`;
+                if (rotationInputEl) rotationInputEl.value = App.state.mapRotation;
+                
                 if(App.state.isSetupComplete) {
                     App.Events.lockSetup();
-                    App.state.map.setBearing(App.state.mapRotation);
+                    if (App.state.map && typeof App.state.map.setBearing === 'function') {
+                        App.state.map.setBearing(App.state.mapRotation);
+                    }
                 }
                 App.CategoryManager.updateSvgPatternDefs(); 
                 App.CategoryManager.render(); 
