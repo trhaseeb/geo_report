@@ -387,13 +387,22 @@
             }
         },
         init() {
-            this.UI.init(); 
-            this.Map.init(); 
-            this.Events.init();
-            this.CategoryManager.render(); 
-            this.Legend.render(); 
-            this.ContributorManager.init();
-            this.UI.updateReportStatusDisplay();
+            try {
+                this.UI.init(); 
+                this.Map.init(); 
+                this.Events.init();
+                this.CategoryManager.render(); 
+                this.Legend.render(); 
+                this.ContributorManager.init();
+                this.UI.updateReportStatusDisplay();
+            } catch (error) {
+                console.error('Critical error during app initialization:', error);
+                // Try to show error message to user
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) {
+                    mainContent.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert"><strong class="font-bold">Application Error:</strong><span class="block sm:inline"> Failed to initialize the application. Please refresh the page and ensure all required libraries are loaded.</span></div>';
+                }
+            }
         },
     };
 
@@ -661,33 +670,54 @@
     // Map management
     App.Map = {
         init() {
-            const map = L.map('map', { 
-                maxZoom: 22, 
-                renderer: L.svg(),
-                fadeAnimation: false,
-                zoomAnimation: false,
-                rotate: true,
-                bearing: App.state.mapRotation,
-            });
-            map.setView([29.7604, -95.3698], 13);
-            const googleSatHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 22, subdomains:['mt0','mt1','mt2','mt3'], attribution: '&copy; Google Maps', crossOrigin: 'anonymous' });
-            googleSatHybrid.addTo(map); 
-            App.state.map = map;
-            const svg = map.getRenderer(map)._container;
-            App.state.svgPatternDefs = L.SVG.create('defs');
-            svg.appendChild(App.state.svgPatternDefs);
-            
-            L.control.rotate({position: 'topright'}).addTo(map);
+            try {
+                // Check if Leaflet is loaded
+                if (typeof L === 'undefined') {
+                    throw new Error('Leaflet library not loaded');
+                }
+                
+                const map = L.map('map', { 
+                    maxZoom: 22, 
+                    renderer: L.svg(),
+                    fadeAnimation: false,
+                    zoomAnimation: false,
+                    rotate: true,
+                    bearing: App.state.mapRotation || 0,
+                });
+                map.setView([29.7604, -95.3698], 13);
+                const googleSatHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 22, subdomains:['mt0','mt1','mt2','mt3'], attribution: '&copy; Google Maps', crossOrigin: 'anonymous' });
+                googleSatHybrid.addTo(map); 
+                App.state.map = map;
+                
+                // Safely create SVG pattern definitions
+                try {
+                    const svg = map.getRenderer(map)._container;
+                    App.state.svgPatternDefs = L.SVG.create('defs');
+                    svg.appendChild(App.state.svgPatternDefs);
+                } catch (svgError) {
+                    console.warn('Could not create SVG pattern definitions:', svgError);
+                }
+                
+                // Add rotation control with error handling
+                try {
+                    if (L.control && L.control.rotate) {
+                        L.control.rotate({position: 'topright'}).addTo(map);
+                    } else {
+                        console.warn('Rotation control not available - map rotation plugin may not be loaded');
+                    }
+                } catch (rotateError) {
+                    console.warn('Could not add rotation control:', rotateError);
+                }
 
-            App.state.projectBoundary.layer = new L.FeatureGroup().addTo(map);
-            App.state.geojsonLayer = new L.FeatureGroup().addTo(map);
-            
-            const baseLayers = { "Satellite Hybrid": googleSatHybrid };
-            const overlayMaps = { "Features": App.state.geojsonLayer };
-            App.state.layersControl = L.control.layers(baseLayers, overlayMaps, { collapsed: false }).addTo(map); 
+                App.state.projectBoundary.layer = new L.FeatureGroup().addTo(map);
+                App.state.geojsonLayer = new L.FeatureGroup().addTo(map);
+                
+                const baseLayers = { "Satellite Hybrid": googleSatHybrid };
+                const overlayMaps = { "Features": App.state.geojsonLayer };
+                App.state.layersControl = L.control.layers(baseLayers, overlayMaps, { collapsed: false }).addTo(map); 
 
-            App.state.measureControl = new L.Control.Measure({ position: 'topleft', primaryLengthUnit: 'feet', secondaryLengthUnit: 'meters', primaryAreaUnit: 'acres', secondaryAreaUnit: 'sqmeters' });
-            App.state.drawControl = new L.Control.Draw({ 
+                App.state.measureControl = new L.Control.Measure({ position: 'topleft', primaryLengthUnit: 'feet', secondaryLengthUnit: 'meters', primaryAreaUnit: 'acres', secondaryAreaUnit: 'sqmeters' });
+                App.state.drawControl = new L.Control.Draw({ 
                 position: 'topleft',
                 edit: { featureGroup: App.state.geojsonLayer, edit: false, remove: true }, 
                 draw: { polygon: true, polyline: true, rectangle: true, circle: false, marker: true, circlemarker: false } 
@@ -698,21 +728,65 @@
             map.on('overlayadd overlayremove', App.Events.handleOverlayToggle);
             map.on('popupopen', App.Events.handlePopupOpen);
             map.on('rotate', () => {
-                const rotation = Math.round(map.getBearing());
-                App.state.mapRotation = rotation;
-                document.getElementById('rotation-value').innerText = `${rotation}°`;
-                document.getElementById('rotation-input').value = rotation;
-                // IMPROVEMENT: Update markers to stay upright when map rotates
-                this.updateMarkerRotations();
+                try {
+                    const rotation = Math.round(map.getBearing() || 0);
+                    App.state.mapRotation = rotation;
+                    
+                    // Safely update UI elements
+                    const rotationValueEl = document.getElementById('rotation-value');
+                    const rotationInputEl = document.getElementById('rotation-input');
+                    
+                    if (rotationValueEl) {
+                        rotationValueEl.innerText = `${rotation}°`;
+                    }
+                    if (rotationInputEl) {
+                        rotationInputEl.value = rotation;
+                    }
+                    
+                    // IMPROVEMENT: Update markers to stay upright when map rotates
+                    App.Map.updateMarkerRotations();
+                } catch (error) {
+                    console.error('Error handling map rotation:', error);
+                }
             });
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                // Show user-friendly error message
+                const mapElement = document.getElementById('map');
+                if (mapElement) {
+                    mapElement.innerHTML = '<div class="flex items-center justify-center h-full text-red-600"><p>Error loading map. Please refresh the page and try again.</p></div>';
+                }
+            }
         },
         renderGeoJSONLayer() {
-            App.state.geojsonLayer.clearLayers();
-            App.state.decoratorLayers.forEach(d => d.remove());
-            App.state.decoratorLayers = [];
-            App.state.featureIdToLayerMap.clear();
-            const geojson = App.state.data.geojson.data;
-            if (!geojson || !geojson.features) { App.Legend.render(); return; }
+            try {
+                if (App.state.geojsonLayer) {
+                    App.state.geojsonLayer.clearLayers();
+                }
+                
+                // Safely clean up decorator layers
+                if (App.state.decoratorLayers && Array.isArray(App.state.decoratorLayers)) {
+                    App.state.decoratorLayers.forEach(d => {
+                        try {
+                            if (d && typeof d.remove === 'function') {
+                                d.remove();
+                            }
+                        } catch (error) {
+                            console.warn('Error removing decorator layer:', error);
+                        }
+                    });
+                }
+                App.state.decoratorLayers = [];
+                
+                if (App.state.featureIdToLayerMap) {
+                    App.state.featureIdToLayerMap.clear();
+                }
+                
+                const geojson = App.state.data.geojson.data;
+                if (!geojson || !geojson.features) { 
+                    App.Legend.render(); 
+                    return; 
+                }
             const featuresToRender = geojson.features.filter(f => {
                 const isVisibleByCategory = App.state.categoryVisibility[f.properties.category] !== false;
                 const matchesObservationFilter = !App.state.showOnlyWithObservations || (f.properties.observations && f.properties.observations.length > 0);
@@ -734,6 +808,15 @@
                 App.state.projectBoundary.layer.bringToBack();
             }
             App.Legend.render(); 
+            } catch (error) {
+                console.error('Error rendering GeoJSON layer:', error);
+                // Try to render legend anyway
+                try {
+                    App.Legend.render();
+                } catch (legendError) {
+                    console.error('Error rendering legend after GeoJSON layer error:', legendError);
+                }
+            }
         },
         updateFeatureDecorator(layer) {
             const oldDecoratorIndex = App.state.decoratorLayers.findIndex(d => d.layer === layer);
@@ -752,14 +835,28 @@
         },
         // IMPROVEMENT: New function to update marker rotations efficiently
         updateMarkerRotations() {
-            const rotation = App.state.mapRotation;
-            App.state.featureIdToLayerMap.forEach(layer => {
-                // Check if the layer is a marker created by the L.rotatedMarker plugin
-                if (layer instanceof L.Marker && typeof layer.setRotationAngle === 'function') {
-                    // Set the angle to the negative of the map's rotation to keep it upright
-                    layer.setRotationAngle(-rotation);
+            try {
+                const rotation = App.state.mapRotation || 0;
+                
+                // Check if featureIdToLayerMap exists and has entries
+                if (!App.state.featureIdToLayerMap || App.state.featureIdToLayerMap.size === 0) {
+                    return;
                 }
-            });
+                
+                App.state.featureIdToLayerMap.forEach(layer => {
+                    try {
+                        // Check if the layer is a marker created by the L.rotatedMarker plugin
+                        if (layer instanceof L.Marker && typeof layer.setRotationAngle === 'function') {
+                            // Set the angle to the negative of the map's rotation to keep it upright
+                            layer.setRotationAngle(-rotation);
+                        }
+                    } catch (layerError) {
+                        console.warn('Error updating rotation for individual layer:', layerError);
+                    }
+                });
+            } catch (error) {
+                console.error('Error in updateMarkerRotations:', error);
+            }
         },
         bindFeatureInteractions(feature, layer) {
             const container = L.DomUtil.create('div', 'font-sans max-w-xs');
@@ -938,7 +1035,16 @@
             App.state.showOnlyWithObservations = false;
             App.state.categoryVisibility = {};
             App.state.mapRotation = 0;
-            App.state.map.setBearing(0);
+            
+            // Safely reset map bearing
+            try {
+                if (App.state.map && typeof App.state.map.setBearing === 'function') {
+                    App.state.map.setBearing(0);
+                }
+            } catch (error) {
+                console.warn('Could not reset map bearing:', error);
+            }
+            
             document.getElementById('show-only-with-observations-toggle').checked = false;
             document.getElementById('main-title').childNodes[0].nodeValue = 'Site Analysis Report ';
             document.getElementById('main-description').innerHTML = 'An interactive overview of the site features and raster data.';
@@ -988,8 +1094,25 @@
             App.UI.elements.setupProjectBtn.onclick = () => this.toggleSetupPanel();
             document.getElementById('define-boundary-btn').onclick = () => this.startBoundaryDraw();
             document.getElementById('rotation-input').addEventListener('input', e => {
-                const rotation = parseInt(e.target.value);
-                App.state.map.setBearing(rotation);
+                try {
+                    const rotation = parseInt(e.target.value);
+                    
+                    // Validate rotation value
+                    if (isNaN(rotation) || rotation < 0 || rotation > 360) {
+                        console.warn('Invalid rotation value:', rotation);
+                        return;
+                    }
+                    
+                    // Check if map exists before setting bearing
+                    if (App.state.map && typeof App.state.map.setBearing === 'function') {
+                        App.state.map.setBearing(rotation);
+                        App.state.mapRotation = rotation;
+                    } else {
+                        console.warn('Map not available for rotation setting');
+                    }
+                } catch (error) {
+                    console.error('Error handling rotation input:', error);
+                }
             });
             document.getElementById('lock-setup-btn').onclick = () => this.lockSetup();
         },
@@ -1669,36 +1792,45 @@
             if (style.shape === 'circle') {
                 return L.circleMarker(latlng, { ...style, radius: (style.size || 16) / 2 });
             }
-            if (typeof L.rotatedMarker !== 'function') {
-                console.error("L.rotatedMarker is not loaded. Falling back to circle marker.");
+            
+            // Check if L.rotatedMarker is available
+            if (typeof L === 'undefined' || typeof L.rotatedMarker !== 'function') {
+                console.warn("L.rotatedMarker is not loaded. Falling back to circle marker.");
                 return L.circleMarker(latlng, { ...style, radius: (style.size || 16) / 2 });
             }
-            const size = style.svgSize || style.size || 24;
-            let iconHtml = '';
-            if (style.shape === 'svg' && style.svg) {
-                try {
-                    iconHtml = `<div style="opacity: ${style.fillOpacity};">${style.svg.replace(/currentColor/g, style.fillColor)}</div>`;
-                    if (!iconHtml.includes('<svg')) throw new Error("Invalid SVG content");
-                } catch (e) {
-                    console.error("Failed to render custom SVG icon, falling back.", e);
-                    iconHtml = `<div style="background-color:red;width:${size}px;height:${size}px;border-radius:50%;"></div>`;
+            
+            try {
+                const size = style.svgSize || style.size || 24;
+                let iconHtml = '';
+                if (style.shape === 'svg' && style.svg) {
+                    try {
+                        iconHtml = `<div style="opacity: ${style.fillOpacity};">${style.svg.replace(/currentColor/g, style.fillColor)}</div>`;
+                        if (!iconHtml.includes('<svg')) throw new Error("Invalid SVG content");
+                    } catch (e) {
+                        console.error("Failed to render custom SVG icon, falling back.", e);
+                        iconHtml = `<div style="background-color:red;width:${size}px;height:${size}px;border-radius:50%;"></div>`;
+                    }
+                } else if (style.shape === 'square') {
+                    iconHtml = `<div style="background-color:${style.fillColor}; opacity: ${style.fillOpacity}; border: ${style.weight}px solid ${style.color}; width:${size}px;height:${size}px;border-radius:2px;"></div>`;
+                } else if (style.shape === 'triangle') {
+                    iconHtml = `<svg viewbox="0 0 24 24" width="${size}" height="${size}" style="opacity: ${style.fillOpacity};"><path d="M12 2 L2 22 L22 22 Z" fill="${style.fillColor}" stroke="${style.color}" stroke-width="${style.weight*24/size}"></path></svg>`;
                 }
-            } else if (style.shape === 'square') {
-                iconHtml = `<div style="background-color:${style.fillColor}; opacity: ${style.fillOpacity}; border: ${style.weight}px solid ${style.color}; width:${size}px;height:${size}px;border-radius:2px;"></div>`;
-            } else if (style.shape === 'triangle') {
-                iconHtml = `<svg viewbox="0 0 24 24" width="${size}" height="${size}" style="opacity: ${style.fillOpacity};"><path d="M12 2 L2 22 L22 22 Z" fill="${style.fillColor}" stroke="${style.color}" stroke-width="${style.weight*24/size}"></path></svg>`;
+                
+                return L.rotatedMarker(latlng, {
+                    icon: L.divIcon({
+                        html: iconHtml,
+                        className: 'custom-svg-icon',
+                        iconSize: [size, size],
+                        iconAnchor: [size / 2, size / 2]
+                    }),
+                    rotationOrigin: 'center center',
+                    // Counter-rotate the marker to keep it upright relative to the screen
+                    rotationAngle: -(App.state.mapRotation || 0)
+                });
+            } catch (error) {
+                console.error('Error creating rotated marker, falling back to circle marker:', error);
+                return L.circleMarker(latlng, { ...style, radius: (style.size || 16) / 2 });
             }
-            return L.rotatedMarker(latlng, {
-                icon: L.divIcon({
-                    html: iconHtml,
-                    className: 'custom-svg-icon',
-                    iconSize: [size, size],
-                    iconAnchor: [size / 2, size / 2]
-                }),
-                rotationOrigin: 'center center',
-                // Counter-rotate the marker to keep it upright relative to the screen
-                rotationAngle: -App.state.mapRotation
-            });
         },
         updateSvgPatternDefs() {
             const defsEl = App.state.svgPatternDefs;
@@ -1974,7 +2106,13 @@
                 App.state.isSetupComplete = data.isSetupComplete || false;
                 if(App.state.isSetupComplete) {
                     App.Events.lockSetup();
-                    App.state.map.setBearing(App.state.mapRotation);
+                    try {
+                        if (App.state.map && typeof App.state.map.setBearing === 'function') {
+                            App.state.map.setBearing(App.state.mapRotation);
+                        }
+                    } catch (error) {
+                        console.warn('Could not restore map bearing:', error);
+                    }
                 }
                 App.CategoryManager.updateSvgPatternDefs(); 
                 App.CategoryManager.render(); 
@@ -2333,6 +2471,25 @@
             }
         }
     };
+
+    // Global error handling
+    window.addEventListener('error', function(event) {
+        console.error('Global error:', event.error);
+        // Don't show too many error messages to avoid spam
+        if (!window._hasShownGlobalError) {
+            window._hasShownGlobalError = true;
+            console.warn('A JavaScript error occurred. Please check the console for details.');
+        }
+    });
+
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        // Don't show too many error messages to avoid spam
+        if (!window._hasShownPromiseError) {
+            window._hasShownPromiseError = true;
+            console.warn('A promise was rejected without being handled. Please check the console for details.');
+        }
+    });
 
     // Initialize the application on window load
     window.onload = () => {
