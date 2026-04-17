@@ -18,7 +18,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-toggle-block@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-alert@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-text-color-plugin@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-drag-drop@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-undo@latest" defer></script>
@@ -109,65 +108,58 @@
     <div id="editorjs"></div>
 
     <script>
-        // --- Safe Notification Checker Engine ---
-        async function runNotificationChecker() {
-            // Safely check if Notifications are supported and granted
-            if (!('Notification' in window) || Notification.permission !== 'granted') return;
-            
-            const data = await DB.get('main_note');
-            if (!data || !data.blocks) return;
-
-            let needsSave = false;
-            const now = new Date().getTime();
-
-            data.blocks.forEach(block => {
-                if (block.type === 'calendar' && block.data.date && !block.data.notified) {
-                    const eventTime = new Date(block.data.date).getTime();
-                    
-                    // If the time has passed, but it's not older than a day
-                    if (eventTime <= now && (now - eventTime) < 86400000) {
-                        try {
-                            new Notification("🗓️ Event Reminder", { 
-                                body: block.data.text || "You have a scheduled event right now."
-                            });
-                        } catch(e) { /* Silent fail if constructor throws */ }
-                        block.data.notified = true; 
-                        needsSave = true;
-                    }
-                }
-            });
-
-            if (needsSave) await DB.set('main_note', data);
-        }
-
-        // Run the checker every 60 seconds
-        setInterval(runNotificationChecker, 60000);
-
-
-        // --- Tiny Vanilla IndexedDB Wrapper ---
+        // --- Bulletproof Vanilla Database Wrapper ---
         const DB = {
             dbName: 'UltimateNotesDB',
             storeName: 'notes',
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const req = indexedDB.open(this.dbName, 1);
-                    req.onupgradeneeded = e => e.target.result.createObjectStore(this.storeName);
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = () => reject(req.error);
+            useLocalFallback: false,
+            init() {
+                return new Promise((resolve) => {
+                    if (!window.indexedDB) {
+                        this.useLocalFallback = true;
+                        return resolve(null);
+                    }
+                    try {
+                        const req = indexedDB.open(this.dbName, 1);
+                        req.onupgradeneeded = e => {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains(this.storeName)) db.createObjectStore(this.storeName);
+                        };
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => { this.useLocalFallback = true; resolve(null); };
+                    } catch (e) {
+                        this.useLocalFallback = true; resolve(null);
+                    }
                 });
             },
             async get(key) {
                 const db = await this.init();
+                if (this.useLocalFallback || !db) {
+                    try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
+                }
                 return new Promise(resolve => {
-                    const req = db.transaction(this.storeName).objectStore(this.storeName).get(key);
-                    req.onsuccess = () => resolve(req.result);
+                    try {
+                        const req = db.transaction(this.storeName, 'readonly').objectStore(this.storeName).get(key);
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => resolve(null);
+                    } catch (e) {
+                        try { resolve(JSON.parse(localStorage.getItem(key))); } catch(err) { resolve(null); }
+                    }
                 });
             },
             async set(key, val) {
                 const db = await this.init();
+                if (this.useLocalFallback || !db) {
+                    try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch(e) { return false; }
+                }
                 return new Promise(resolve => {
-                    const req = db.transaction(this.storeName, 'readwrite').objectStore(this.storeName).put(val, key);
-                    req.onsuccess = () => resolve(true);
+                    try {
+                        const req = db.transaction(this.storeName, 'readwrite').objectStore(this.storeName).put(val, key);
+                        req.onsuccess = () => resolve(true);
+                        req.onerror = () => resolve(false);
+                    } catch (e) {
+                        try { localStorage.setItem(key, JSON.stringify(val)); resolve(true); } catch(err) { resolve(false); }
+                    }
                 });
             }
         };
@@ -191,39 +183,74 @@
             static get toolbox() { 
                 return { title: 'Event Reminder', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' }; 
             }
-            constructor({data}) {
-                this.data = data || { date: '', text: '', notified: false };
+            constructor({data, api}) {
+                this.api = api;
+                this.data = data && Object.keys(data).length > 0 ? data : { date: '', text: '', notified: false };
                 this.wrapper = document.createElement('div');
+                this.interval = setInterval(() => this.checkAlarm(), 5000); // Self-contained alarm checker
             }
             render() {
                 this.wrapper.className = 'calendar-evt';
                 this.wrapper.innerHTML = `
                     <input type="datetime-local" class="evt-date" value="${this.data.date}">
                     <input type="text" class="evt-text" placeholder="What happens then?" value="${this.data.text || ''}">
+                    <span class="state-trigger" style="display:none;"></span>
                 `;
                 
                 const dateInput = this.wrapper.querySelector('.evt-date');
+                const textInput = this.wrapper.querySelector('.evt-text');
+                const trigger = this.wrapper.querySelector('.state-trigger');
+
+                // This tricks Editor.js into triggering an auto-save
+                const triggerChange = () => { trigger.innerText = Date.now(); };
                 
-                // Ask for permission quietly when they click to set a date!
+                // Silently request permission when they tap to add a date
                 dateInput.addEventListener('click', async () => {
-                    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-                        try { await Notification.requestPermission(); } catch (e) { /* Silent fail */ }
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        try { await Notification.requestPermission(); } catch (e) { /* Fallback used later */ }
                     }
                 });
 
-                // Reset notification flag if they change the date
                 dateInput.addEventListener('change', () => {
                     this.data.notified = false; 
+                    this.data.date = dateInput.value;
+                    triggerChange();
+                });
+
+                textInput.addEventListener('input', () => {
+                    this.data.text = textInput.value;
+                    triggerChange();
                 });
 
                 return this.wrapper;
             }
-            save(blockContent) {
-                return {
-                    date: blockContent.querySelector('.evt-date').value,
-                    text: blockContent.querySelector('.evt-text').value,
-                    notified: this.data.notified || false
-                };
+            checkAlarm() {
+                if (!this.data.date || this.data.notified) return;
+                const eventTime = new Date(this.data.date).getTime();
+                const now = new Date().getTime();
+                
+                if (eventTime <= now && (now - eventTime) < 86400000) {
+                    this.data.notified = true; 
+                    this.wrapper.querySelector('.state-trigger').innerText = Date.now(); // Trigger save to lock in 'notified' state
+                    
+                    const msg = "🗓️ Event Reminder: " + (this.data.text || "Scheduled event right now!");
+                    
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        try { 
+                            new Notification("Ultimate Notes", { body: msg }); 
+                        } catch(e) { 
+                            alert(msg); // Fallback if constructor fails
+                        }
+                    } else {
+                        alert(msg); // Fallback for mobile browsers
+                    }
+                }
+            }
+            save() {
+                return this.data;
+            }
+            destroy() {
+                clearInterval(this.interval);
             }
         }
 
@@ -303,6 +330,7 @@
                     <div class="canvas-wrapper">
                         <canvas width="750" height="400"></canvas>
                     </div>
+                    <span class="state-trigger" style="display:none;"></span>
                 `;
 
                 this.canvas = this.wrapper.querySelector('canvas');
@@ -310,7 +338,6 @@
                 this.ctx.lineCap = 'round';
                 this.ctx.lineJoin = 'round';
 
-                // Setup Colors
                 this.wrapper.querySelectorAll('.canvas-color').forEach(btn => {
                     btn.onclick = (e) => {
                         this.wrapper.querySelector('.active').classList.remove('active');
@@ -319,7 +346,6 @@
                     };
                 });
 
-                // Setup Image Upload
                 this.wrapper.querySelector('input[type="file"]').onchange = (e) => {
                     const file = e.target.files[0];
                     if (file) {
@@ -340,7 +366,6 @@
                     }
                 };
 
-                // Setup Clear/Reset
                 this.wrapper.querySelector('.clear-btn').onclick = () => {
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     if (this.baseImage) {
@@ -351,7 +376,6 @@
                     this.saveToData();
                 };
 
-                // Load existing data
                 if (this.data || this.baseImage) {
                     const img = new Image();
                     img.onload = () => {
@@ -362,7 +386,6 @@
                     img.src = this.data || this.baseImage;
                 }
 
-                // Drawing Engine
                 let isDrawing = false;
                 const getCoords = (e) => {
                     const rect = this.canvas.getBoundingClientRect();
@@ -388,7 +411,10 @@
                 return this.wrapper;
             }
 
-            saveToData() { this.data = this.canvas.toDataURL('image/png'); }
+            saveToData() { 
+                this.data = this.canvas.toDataURL('image/png'); 
+                this.wrapper.querySelector('.state-trigger').innerText = Date.now(); // Triggers EditorJS auto-save
+            }
             save() { return { image: this.data, baseImage: this.baseImage }; }
         }
 
@@ -397,7 +423,7 @@
             static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
             constructor({data}) {
                 this.data = data.url || null; this.recorder = null; this.chunks = [];
-                this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div') };
+                this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div'), trigger: document.createElement('span') };
             }
             render() {
                 this.nodes.wrapper.className = 'v-memo';
@@ -406,10 +432,11 @@
                 this.nodes.status.className = 'v-memo__status';
                 this.nodes.status.innerText = this.data ? 'Recording saved' : 'Click to record audio';
                 this.nodes.audio.controls = true;
+                this.nodes.trigger.style.display = 'none';
                 
                 if (this.data) this.nodes.audio.src = this.data; else this.nodes.audio.style.display = 'none';
                 this.nodes.button.onclick = () => this.toggleRecording();
-                this.nodes.wrapper.append(this.nodes.button, this.nodes.status, this.nodes.audio);
+                this.nodes.wrapper.append(this.nodes.button, this.nodes.status, this.nodes.audio, this.nodes.trigger);
                 return this.nodes.wrapper;
             }
             async toggleRecording() {
@@ -423,7 +450,13 @@
                         this.recorder.onstop = () => {
                             const blob = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
                             const reader = new FileReader();
-                            reader.onloadend = () => { this.data = reader.result; this.nodes.audio.src = this.data; this.nodes.audio.style.display = 'block'; this.nodes.status.innerText = 'Saved'; };
+                            reader.onloadend = () => { 
+                                this.data = reader.result; 
+                                this.nodes.audio.src = this.data; 
+                                this.nodes.audio.style.display = 'block'; 
+                                this.nodes.status.innerText = 'Saved'; 
+                                this.nodes.trigger.innerText = Date.now(); // Triggers EditorJS auto-save
+                            };
                             reader.readAsDataURL(blob);
                         };
                         this.recorder.start();
@@ -437,10 +470,10 @@
         // --- Init Editor ---
         window.addEventListener('load', async () => {
             let savedData = await DB.get('main_note');
-            if (!savedData) {
+            if (!savedData || !savedData.blocks || savedData.blocks.length === 0) {
                 savedData = {
                     blocks: [
-                        { type: "paragraph", data: { text: "Type '/' to add a Calendar Event!" } }
+                        { type: "paragraph", data: { text: "Type '/' to add a Calendar Event or sketch!" } }
                     ]
                 };
             }
@@ -456,7 +489,7 @@
                     list: { class: NestedList, inlineToolbar: inlineToolbarConfig },
                     checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
                     quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
-                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, alert: Alert, toggle: ToggleBlock,
+                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, toggle: ToggleBlock,
                     
                     // Unified Custom Suite
                     calendar: CalendarTool,
@@ -479,9 +512,10 @@
                     });
                 },
                 onChange: async () => {
-                    const outputData = await editor.save();
-                    await DB.set('main_note', outputData);
-                    runNotificationChecker(); // Check immediately after save
+                    try {
+                        const outputData = await editor.save();
+                        await DB.set('main_note', outputData);
+                    } catch(e) { /* Safe fail */ }
                 }
             });
         });
