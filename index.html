@@ -1,70 +1,137 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultimate Infinite Notes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-toggle-block@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-text-color-plugin@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-drag-drop@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-undo@latest" defer></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js" defer></script>
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <title>Infinite Notes</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Notes">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+    
+    <!-- Dynamic Manifest & Icons will be injected via JS below to bypass the single-file limitation -->
+    <link id="pwa-manifest" rel="manifest" href="">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMDAwMCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4bC02LTZ6Ii8+PC9zdmc+">
+
+    <!-- Editor.js Core & Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-toggle-block@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-alert@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-text-color-plugin@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-drag-drop@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-undo@latest"></script>
+
+    <!-- Emoji Picker Element -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 
     <style>
         /* --- Pure Flat Theme Variables --- */
         :root {
-            --bg-color: #ffffff; --text-color: #000000; --border-color: #e0e0e0;
-            --muted-bg: #f5f5f5; --muted-text: #666666; --accent-color: #000000;
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border-color: #e0e0e0;
+            --muted-bg: #f5f5f5;
+            --muted-text: #666666;
+            --accent-color: #000000;
             --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --editor-toolbar-bg: #ffffff; --editor-hover-bg: #ebebeb; --overlay-bg: transparent; 
+            --editor-toolbar-bg: #ffffff;
+            --editor-hover-bg: #ebebeb;
+            --overlay-bg: transparent; 
             --keyboard-offset: 0px; 
+            --safe-area-top: env(safe-area-inset-top, 0px);
         }
+
+        /* True Flat Dark Mode */
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg-color: #121212; --text-color: #ffffff; --border-color: #333333;
-                --muted-bg: #1e1e1e; --muted-text: #aaaaaa; --accent-color: #ffffff;
-                --editor-toolbar-bg: #1e1e1e; --editor-hover-bg: #2a2a2a; 
+                --bg-color: #121212;
+                --text-color: #ffffff;
+                --border-color: #333333;
+                --muted-bg: #1e1e1e;
+                --muted-text: #aaaaaa;
+                --accent-color: #ffffff;
+                --editor-toolbar-bg: #1e1e1e;
+                --editor-hover-bg: #2a2a2a;
             }
         }
-        body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); margin: 0; padding: 0; line-height: 1.6; overflow-x: hidden; }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            font-family: var(--font-main); 
+            margin: 0; 
+            padding: 0; 
+            line-height: 1.6; 
+            /* Strict constraint to prevent horizontal scrolling */
+            width: 100vw;
+            overflow-x: hidden; 
+        }
+
+        #editorjs { 
+            max-width: 750px; 
+            width: 100%;
+            margin: 0 auto; 
+            /* Added env() for PWA notch safety */
+            padding: calc(10vh + var(--safe-area-top)) 20px 65vh 20px; 
+            box-sizing: border-box; 
+        }
         
-        #editorjs { max-width: 750px; margin: 0 auto; padding: 10vh 20px 65vh 20px; box-sizing: border-box; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
-        .ce-block__content, .ce-toolbar__content { max-width: 100% !important; }
+        ::-webkit-scrollbar:horizontal { display: none; } /* Kill horizontal scrollbars */
+
+        .ce-block__content, .ce-toolbar__content { 
+            max-width: 100% !important; 
+            /* Ensure text wraps instead of pushing boundaries */
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+
+        /* Prevent SVGs from squishing */
         svg { flex-shrink: 0; }
 
-        /* Tools & Overlays */
+        /* Main Buttons */
         .ce-toolbar__plus, .ce-toolbar__settings-btn { background-color: var(--bg-color) !important; color: var(--text-color) !important; border: 1px solid transparent; }
         .ce-toolbar__plus:hover, .ce-toolbar__settings-btn:hover { background-color: var(--editor-hover-bg) !important; border-color: var(--border-color); }
-        .ce-popover__overlay, .ce-popover-overlay, .cdx-overlay { background: var(--overlay-bg) !important; box-shadow: none !important; backdrop-filter: none !important; }
 
+        /* Remove Overlays */
+        .ce-popover__overlay, .ce-popover-overlay, .cdx-overlay { background: var(--overlay-bg) !important; background-color: var(--overlay-bg) !important; box-shadow: none !important; backdrop-filter: none !important; }
+
+        /* Deep Overrides for Dark Mode */
         @media (prefers-color-scheme: dark) {
-            .ce-popover, .ce-popover__container, .ce-popover__panel, .ce-popover__items, .ce-inline-toolbar, .ce-conversion-toolbar, .ce-settings, .ce-tooltip, .tc-popover { background: var(--editor-toolbar-bg) !important; border-color: var(--border-color) !important; box-shadow: none !important; }
+            .ce-popover, .ce-popover__container, .ce-popover__panel, .ce-popover__items, .ce-inline-toolbar, .ce-conversion-toolbar, .ce-settings, .ce-tooltip, .tc-popover { background: var(--editor-toolbar-bg) !important; background-color: var(--editor-toolbar-bg) !important; border-color: var(--border-color) !important; box-shadow: none !important; }
             .ce-popover-item, .ce-inline-tool, .ce-conversion-tool, .ce-settings__button { background-color: transparent !important; color: var(--text-color) !important; }
             .ce-popover-item__title { color: var(--text-color) !important; }
             .ce-popover-item:hover, .ce-inline-tool:hover, .ce-conversion-tool:hover, .ce-settings__button:hover { background-color: var(--editor-hover-bg) !important; }
             .ce-popover-item__icon, .ce-popover-item__icon--active, .ce-popover__item-icon { background-color: var(--muted-bg) !important; color: var(--text-color) !important; box-shadow: none !important; border-color: var(--border-color) !important; }
             .cdx-search-field, .cdx-input { background-color: var(--muted-bg) !important; color: var(--text-color) !important; border: 1px solid var(--border-color) !important; box-shadow: none !important; }
+            .cdx-search-field__icon { color: var(--muted-text) !important; }
             .ce-block--selected .ce-block__content { background-color: var(--editor-hover-bg) !important; }
             ::selection { background: #444444 !important; color: #ffffff; }
-            .ce-code__textarea { background: var(--muted-bg) !important; color: var(--text-color) !important; border-color: var(--border-color) !important; }
+            .ce-code__textarea { background: var(--muted-bg) !important; color: var(--text-color) !important; border: 1px solid var(--border-color) !important; }
+            .ce-inline-tool-code { background: var(--muted-bg) !important; color: var(--text-color) !important; word-break: break-word; }
             cdx-marker { background: #4a4a00 !important; color: var(--text-color) !important; }
+            .tc-wrap, .tc-row::after, .tc-cell { border-color: var(--border-color) !important; }
+            /* Tables scroll horizontally internally instead of page */
+            .tc-wrap { overflow-x: auto; max-width: 100vw; }
             emoji-picker { --background: var(--editor-toolbar-bg); --border-color: var(--border-color); --input-border-color: var(--border-color); --category-icon-color: var(--muted-text); }
         }
 
+        /* --- Mobile Keyboard Fix CSS --- */
         @media (max-width: 650px) {
             .ce-popover, .ce-settings, .ce-inline-toolbar {
                 bottom: var(--keyboard-offset, 0px) !important;
@@ -73,34 +140,26 @@
             }
         }
 
-        /* Input Resets for Custom Tools */
-        input[type="text"], input[type="datetime-local"] { background: var(--muted-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; font-family: inherit; font-size: 14px; outline: none; }
-        input[type="text"]:focus, input[type="datetime-local"]:focus { border-color: var(--text-color); }
-
-        /* Unified Canvas CSS */
-        .canvas-container { border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-color); margin: 10px 0; }
-        .canvas-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--muted-bg); border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 8px;}
-        .canvas-colors { display: flex; gap: 6px; align-items: center; }
-        .canvas-color { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; }
-        .canvas-color.active { outline: 2px solid var(--text-color); outline-offset: -4px; }
-        .canvas-action-btn { background: var(--bg-color); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; color: var(--text-color); }
-        .canvas-wrapper { width: 100%; overflow: hidden; display: flex; justify-content: center; background: var(--bg-color); position: relative; }
-        canvas { touch-action: none; background: transparent; cursor: crosshair; display: block; max-width: 100%; }
-
-        /* Voice Memo CSS */
-        .v-memo { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin: 10px 0; }
-        .v-memo__btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; }
+        /* Custom Tools Styles */
+        .v-memo { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin: 10px 0; max-width: 100%; box-sizing: border-box; }
+        .v-memo__btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; min-width: 36px; }
+        .v-memo__btn svg { min-width: 16px; min-height: 16px; width: 16px; height: 16px; } 
         .v-memo__btn.recording { color: #ffffff; border-color: #ef4444; background: #ef4444; animation: pulse 1.5s infinite; }
         .v-memo__status { font-size: 14px; color: var(--muted-text); flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        audio { height: 32px; max-width: 200px; outline: none; flex-shrink: 0; }
+        audio { height: 32px; max-width: 150px; outline: none; flex-shrink: 1; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* Calendar Event CSS */
-        .calendar-evt { border: 1px solid var(--border-color); background: var(--bg-color); border-radius: 6px; padding: 12px; display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
-        .calendar-evt input[type="text"] { flex-grow: 1; min-width: 200px; }
+        /* Minimal Canvas Styles */
+        .canvas-container { border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-color); margin: 10px 0; max-width: 100%; box-sizing: border-box;}
+        .canvas-wrapper { width: 100%; overflow: hidden; display: flex; justify-content: center; background: var(--bg-color); }
+        canvas { touch-action: none; background: transparent; cursor: crosshair; display: block; max-width: 100%; height: auto !important; }
+        
+        /* Popover Settings Styles for Canvas */
+        .canvas-color-setting { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; background-color: transparent; transition: transform 0.1s; flex-shrink: 0; }
+        .canvas-color-setting.active { transform: scale(1.2); outline: 2px solid var(--text-color); outline-offset: 1px; border-color: transparent; }
 
-        .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: 6px; display: none; background: var(--editor-toolbar-bg); }
-        emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; }
+        .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: 6px; display: none; background: var(--editor-toolbar-bg); max-width: 90vw; }
+        emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; width: 100%; }
     </style>
 </head>
 <body>
@@ -108,157 +167,53 @@
     <div id="editorjs"></div>
 
     <script>
-        // --- Bulletproof Vanilla Database Wrapper ---
-        const DB = {
-            dbName: 'UltimateNotesDB',
-            storeName: 'notes',
-            useLocalFallback: false,
-            init() {
-                return new Promise((resolve) => {
-                    if (!window.indexedDB) {
-                        this.useLocalFallback = true;
-                        return resolve(null);
-                    }
-                    try {
-                        const req = indexedDB.open(this.dbName, 1);
-                        req.onupgradeneeded = e => {
-                            const db = e.target.result;
-                            if (!db.objectStoreNames.contains(this.storeName)) db.createObjectStore(this.storeName);
-                        };
-                        req.onsuccess = () => resolve(req.result);
-                        req.onerror = () => { this.useLocalFallback = true; resolve(null); };
-                    } catch (e) {
-                        this.useLocalFallback = true; resolve(null);
-                    }
-                });
-            },
-            async get(key) {
-                const db = await this.init();
-                if (this.useLocalFallback || !db) {
-                    try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
-                }
-                return new Promise(resolve => {
-                    try {
-                        const req = db.transaction(this.storeName, 'readonly').objectStore(this.storeName).get(key);
-                        req.onsuccess = () => resolve(req.result);
-                        req.onerror = () => resolve(null);
-                    } catch (e) {
-                        try { resolve(JSON.parse(localStorage.getItem(key))); } catch(err) { resolve(null); }
-                    }
-                });
-            },
-            async set(key, val) {
-                const db = await this.init();
-                if (this.useLocalFallback || !db) {
-                    try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch(e) { return false; }
-                }
-                return new Promise(resolve => {
-                    try {
-                        const req = db.transaction(this.storeName, 'readwrite').objectStore(this.storeName).put(val, key);
-                        req.onsuccess = () => resolve(true);
-                        req.onerror = () => resolve(false);
-                    } catch (e) {
-                        try { localStorage.setItem(key, JSON.stringify(val)); resolve(true); } catch(err) { resolve(false); }
-                    }
-                });
-            }
-        };
+        const STORAGE_KEY = 'ultimate_notes_pure_flat_v6';
 
-        // --- Mobile Keyboard Fix ---
+        // --- PWA Setup ---
+        // Dynamically generating a Web Manifest blob so this runs entirely as a single file app
+        const pwaManifest = {
+            "name": "Infinite Notes",
+            "short_name": "Notes",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": window.matchMedia('(prefers-color-scheme: dark)').matches ? "#121212" : "#ffffff",
+            "theme_color": window.matchMedia('(prefers-color-scheme: dark)').matches ? "#121212" : "#ffffff",
+            "icons": [{
+                "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMDAwMCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4bC02LTZ6Ii8+PC9zdmc+",
+                "sizes": "192x192",
+                "type": "image/svg+xml"
+            }]
+        };
+        const manifestString = JSON.stringify(pwaManifest);
+        document.getElementById('pwa-manifest').setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString));
+
+        // --- Mobile Keyboard Fix Engine ---
         if (window.visualViewport) {
-            const updateOffset = () => {
-                const safeOffset = Math.max(0, window.innerHeight - window.visualViewport.height);
+            const updateKeyboardOffset = () => {
+                const offset = window.innerHeight - window.visualViewport.height;
+                const safeOffset = Math.max(0, offset);
                 document.documentElement.style.setProperty('--keyboard-offset', `${safeOffset}px`);
+
                 if (safeOffset > 100) {
-                    setTimeout(() => document.querySelector('.ce-block--focused')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+                    setTimeout(() => {
+                        const activeBlock = document.querySelector('.ce-block--focused');
+                        if (activeBlock) {
+                            activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 150);
                 }
             };
-            window.visualViewport.addEventListener('resize', updateOffset);
-            window.visualViewport.addEventListener('scroll', updateOffset);
-            updateOffset();
+            window.visualViewport.addEventListener('resize', updateKeyboardOffset);
+            window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
+            updateKeyboardOffset();
         }
 
-        // --- 1. Custom Block Tool: Calendar / Event ---
-        class CalendarTool {
-            static get toolbox() { 
-                return { title: 'Event Reminder', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' }; 
-            }
-            constructor({data, api}) {
-                this.api = api;
-                this.data = data && Object.keys(data).length > 0 ? data : { date: '', text: '', notified: false };
-                this.wrapper = document.createElement('div');
-                this.interval = setInterval(() => this.checkAlarm(), 5000); // Self-contained alarm checker
-            }
-            render() {
-                this.wrapper.className = 'calendar-evt';
-                this.wrapper.innerHTML = `
-                    <input type="datetime-local" class="evt-date" value="${this.data.date}">
-                    <input type="text" class="evt-text" placeholder="What happens then?" value="${this.data.text || ''}">
-                    <span class="state-trigger" style="display:none;"></span>
-                `;
-                
-                const dateInput = this.wrapper.querySelector('.evt-date');
-                const textInput = this.wrapper.querySelector('.evt-text');
-                const trigger = this.wrapper.querySelector('.state-trigger');
-
-                // This tricks Editor.js into triggering an auto-save
-                const triggerChange = () => { trigger.innerText = Date.now(); };
-                
-                // Silently request permission when they tap to add a date
-                dateInput.addEventListener('click', async () => {
-                    if ('Notification' in window && Notification.permission === 'default') {
-                        try { await Notification.requestPermission(); } catch (e) { /* Fallback used later */ }
-                    }
-                });
-
-                dateInput.addEventListener('change', () => {
-                    this.data.notified = false; 
-                    this.data.date = dateInput.value;
-                    triggerChange();
-                });
-
-                textInput.addEventListener('input', () => {
-                    this.data.text = textInput.value;
-                    triggerChange();
-                });
-
-                return this.wrapper;
-            }
-            checkAlarm() {
-                if (!this.data.date || this.data.notified) return;
-                const eventTime = new Date(this.data.date).getTime();
-                const now = new Date().getTime();
-                
-                if (eventTime <= now && (now - eventTime) < 86400000) {
-                    this.data.notified = true; 
-                    this.wrapper.querySelector('.state-trigger').innerText = Date.now(); // Trigger save to lock in 'notified' state
-                    
-                    const msg = "🗓️ Event Reminder: " + (this.data.text || "Scheduled event right now!");
-                    
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        try { 
-                            new Notification("Ultimate Notes", { body: msg }); 
-                        } catch(e) { 
-                            alert(msg); // Fallback if constructor fails
-                        }
-                    } else {
-                        alert(msg); // Fallback for mobile browsers
-                    }
-                }
-            }
-            save() {
-                return this.data;
-            }
-            destroy() {
-                clearInterval(this.interval);
-            }
-        }
-
-        // --- 2. Custom Inline Tool: Emoji Picker ---
+        // --- 1. Custom Inline Tool: Emoji Picker ---
         class EmojiInlineTool {
             static get isInline() { return true; }
             get shortcut() { return 'CMD+E'; }
             constructor({api}) { this.api = api; this.button = null; this.pickerWrapper = null; this.savedRange = null; }
+
             render() {
                 this.button = document.createElement('button');
                 this.button.type = 'button';
@@ -268,15 +223,18 @@
 
                 this.pickerWrapper = document.createElement('div');
                 this.pickerWrapper.className = 'emoji-picker-wrapper';
+                
                 const picker = document.createElement('emoji-picker');
-                picker.addEventListener('emoji-click', e => {
-                    this.insertEmoji(e.detail.unicode);
+                picker.addEventListener('emoji-click', event => {
+                    this.insertEmoji(event.detail.unicode);
                     this.pickerWrapper.style.display = 'none';
                 });
+
                 this.pickerWrapper.appendChild(picker);
                 this.button.appendChild(this.pickerWrapper);
                 return this.button;
             }
+
             surround(range) {
                 if (!range) return;
                 this.savedRange = range.cloneRange();
@@ -284,6 +242,7 @@
                 document.querySelectorAll('.emoji-picker-wrapper').forEach(p => p.style.display = 'none');
                 this.pickerWrapper.style.display = isVisible ? 'none' : 'block';
             }
+
             insertEmoji(emoji) {
                 if (this.savedRange) {
                     this.savedRange.deleteContents();
@@ -299,14 +258,15 @@
             checkState() { return false; }
         }
 
-        // --- 3. Consolidated Tool: Canvas (Whiteboard + Photo Annotation) ---
+        // --- 2. Minimal Custom Block Tool: Drawing & Photo Annotator ---
         class CanvasTool {
-            static get toolbox() { return { title: 'Canvas / Photo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' }; }
+            static get toolbox() { return { title: 'Drawing/Photo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>' }; }
 
-            constructor({data}) {
-                this.data = data.image || null;
-                this.baseImage = data.baseImage || null;
-                this.currentColor = '#EF4444'; 
+            constructor({data, api}) {
+                this.api = api; 
+                this.baseImage = data.baseImage || 'blank'; 
+                this.data = data.image || null; 
+                this.currentColor = '#000000'; 
                 this.canvas = null;
                 this.ctx = null;
                 this.wrapper = document.createElement('div');
@@ -314,86 +274,65 @@
             }
 
             render() {
-                this.wrapper.innerHTML = `
-                    <div class="canvas-toolbar">
-                        <div class="canvas-colors">
-                            <button class="canvas-color active" style="background:#EF4444" data-color="#EF4444"></button>
-                            <button class="canvas-color" style="background:#3B82F6" data-color="#3B82F6"></button>
-                            <button class="canvas-color" style="background:#10B981" data-color="#10B981"></button>
-                            <button class="canvas-color" style="background:#000000" data-color="#000000"></button>
-                            <button class="canvas-color" style="background:#ffffff" data-color="#ffffff"></button>
-                            <input type="file" id="file-upload-${Date.now()}" accept="image/*" style="display:none;">
-                            <button class="canvas-action-btn" onclick="document.getElementById('file-upload-${Date.now()}').click()">🖼️ Image</button>
-                        </div>
-                        <button class="canvas-action-btn clear-btn">Reset</button>
-                    </div>
-                    <div class="canvas-wrapper">
-                        <canvas width="750" height="400"></canvas>
-                    </div>
-                    <span class="state-trigger" style="display:none;"></span>
-                `;
-
-                this.canvas = this.wrapper.querySelector('canvas');
+                this.wrapper.innerHTML = '';
+                
+                const canvasWrapper = document.createElement('div');
+                canvasWrapper.className = 'canvas-wrapper';
+                
+                this.canvas = document.createElement('canvas');
+                this.canvas.style.width = '100%';
+                this.canvas.style.height = 'auto';
+                this.canvas.style.display = 'block'; 
+                
                 this.ctx = this.canvas.getContext('2d');
-                this.ctx.lineCap = 'round';
-                this.ctx.lineJoin = 'round';
+                
+                const initContext = () => {
+                    this.ctx.lineCap = 'round';
+                    this.ctx.lineJoin = 'round';
+                };
 
-                this.wrapper.querySelectorAll('.canvas-color').forEach(btn => {
-                    btn.onclick = (e) => {
-                        this.wrapper.querySelector('.active').classList.remove('active');
-                        e.target.classList.add('active');
-                        this.currentColor = e.target.getAttribute('data-color');
-                    };
-                });
+                const loadAndDraw = () => {
+                    // DYNAMIC SIZING: Ensure it never exceeds the screen width
+                    // Fallback to window width minus padding if wrapper clientWidth isn't ready
+                    const dynamicMaxWidth = this.wrapper.clientWidth > 0 ? this.wrapper.clientWidth : (window.innerWidth - 40);
 
-                this.wrapper.querySelector('input[type="file"]').onchange = (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (re) => {
+                    if (this.baseImage && this.baseImage !== 'blank') {
+                        const imgSrcToLoad = this.data || this.baseImage;
+                        const img = new Image();
+                        img.onload = () => {
+                            const scale = Math.min(1, dynamicMaxWidth / img.width);
+                            this.canvas.width = img.width * scale;
+                            this.canvas.height = img.height * scale;
+                            initContext();
+                            this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                        };
+                        img.src = imgSrcToLoad;
+                    } else {
+                        // Default blank whiteboard sizes dynamically
+                        this.canvas.width = dynamicMaxWidth;
+                        this.canvas.height = Math.min(400, dynamicMaxWidth * 0.75); // 4:3 ratio ish
+                        initContext();
+                        if (this.data) {
                             const img = new Image();
                             img.onload = () => {
-                                const scale = Math.min(1, 750 / img.width);
-                                this.canvas.width = img.width * scale;
-                                this.canvas.height = img.height * scale;
-                                this.baseImage = re.target.result;
+                                // Draw existing data scaled down if screen is smaller
                                 this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-                                this.saveToData();
-                            };
-                            img.src = re.target.result;
-                        };
-                        reader.readAsDataURL(file);
+                            }
+                            img.src = this.data;
+                        }
                     }
                 };
-
-                this.wrapper.querySelector('.clear-btn').onclick = () => {
-                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                    if (this.baseImage) {
-                        const img = new Image();
-                        img.onload = () => this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-                        img.src = this.baseImage;
-                    }
-                    this.saveToData();
-                };
-
-                if (this.data || this.baseImage) {
-                    const img = new Image();
-                    img.onload = () => {
-                        this.canvas.width = img.width;
-                        this.canvas.height = img.height;
-                        this.ctx.drawImage(img, 0, 0);
-                    };
-                    img.src = this.data || this.baseImage;
-                }
+                
+                // Allow DOM to settle before measuring
+                setTimeout(loadAndDraw, 10);
 
                 let isDrawing = false;
                 const getCoords = (e) => {
                     const rect = this.canvas.getBoundingClientRect();
                     const scaleX = this.canvas.width / rect.width;
                     const scaleY = this.canvas.height / rect.height;
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+                    if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+                    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
                 };
 
                 const startDraw = (e) => { isDrawing = true; const {x, y} = getCoords(e); this.ctx.beginPath(); this.ctx.moveTo(x, y); };
@@ -404,39 +343,139 @@
                 this.canvas.addEventListener('mousemove', draw);
                 this.canvas.addEventListener('mouseup', stopDraw); 
                 this.canvas.addEventListener('mouseleave', stopDraw);
+                
                 this.canvas.addEventListener('touchstart', startDraw, {passive: false}); 
                 this.canvas.addEventListener('touchmove', draw, {passive: false}); 
                 this.canvas.addEventListener('touchend', stopDraw);
 
+                canvasWrapper.appendChild(this.canvas);
+                this.wrapper.appendChild(canvasWrapper);
+                
                 return this.wrapper;
             }
 
-            saveToData() { 
-                this.data = this.canvas.toDataURL('image/png'); 
-                this.wrapper.querySelector('.state-trigger').innerText = Date.now(); // Triggers EditorJS auto-save
+            renderSettings() {
+                const wrapper = document.createElement('div');
+                
+                const colorRow = document.createElement('div');
+                colorRow.style.display = 'flex';
+                colorRow.style.justifyContent = 'space-around';
+                colorRow.style.padding = '12px 10px';
+                colorRow.style.borderBottom = '1px solid var(--border-color)';
+                colorRow.style.marginBottom = '4px';
+                
+                const colors = ['#000000', '#EF4444', '#3B82F6', '#10B981', '#ffffff'];
+                colors.forEach(color => {
+                    const btn = document.createElement('button');
+                    btn.className = 'canvas-color-setting';
+                    btn.style.backgroundColor = color;
+                    if (this.currentColor === color) btn.classList.add('active');
+                    
+                    btn.onclick = () => {
+                        this.currentColor = color;
+                        colorRow.querySelectorAll('.canvas-color-setting').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    };
+                    colorRow.appendChild(btn);
+                });
+                wrapper.appendChild(colorRow);
+
+                const uploadBtn = document.createElement('div');
+                uploadBtn.className = 'ce-popover-item';
+                uploadBtn.innerHTML = `
+                    <div class="ce-popover-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+                    <div class="ce-popover-item__title">Set Background Image</div>
+                `;
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file'; 
+                fileInput.accept = 'image/*'; 
+                fileInput.style.display = 'none';
+                
+                fileInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (re) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                const dynamicMaxWidth = this.wrapper.clientWidth > 0 ? this.wrapper.clientWidth : (window.innerWidth - 40);
+                                const scale = Math.min(1, dynamicMaxWidth / img.width);
+                                
+                                const offCanvas = document.createElement('canvas');
+                                offCanvas.width = img.width * scale;
+                                offCanvas.height = img.height * scale;
+                                const offCtx = offCanvas.getContext('2d');
+                                offCtx.drawImage(img, 0, 0, offCanvas.width, offCanvas.height);
+                                
+                                this.baseImage = offCanvas.toDataURL('image/jpeg', 0.85);
+                                this.data = this.baseImage; 
+                                
+                                this.canvas.width = offCanvas.width;
+                                this.canvas.height = offCanvas.height;
+                                this.ctx.lineCap = 'round';
+                                this.ctx.lineJoin = 'round';
+                                this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                                this.saveToData();
+                                
+                                this.api.toolbar.close(); 
+                            };
+                            img.src = re.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+                uploadBtn.onclick = () => fileInput.click();
+                
+                wrapper.appendChild(uploadBtn);
+                wrapper.appendChild(fileInput);
+
+                const clearBtn = document.createElement('div');
+                clearBtn.className = 'ce-popover-item';
+                clearBtn.innerHTML = `
+                    <div class="ce-popover-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+                    <div class="ce-popover-item__title">Clear Drawing</div>
+                `;
+                clearBtn.onclick = () => {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    if (this.baseImage && this.baseImage !== 'blank') {
+                        const img = new Image();
+                        img.onload = () => {
+                            this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                            this.saveToData();
+                        };
+                        img.src = this.baseImage;
+                    } else {
+                        this.saveToData();
+                    }
+                    this.api.toolbar.close();
+                };
+                wrapper.appendChild(clearBtn);
+
+                return wrapper;
             }
+
+            saveToData() { this.data = this.canvas.toDataURL('image/png'); }
             save() { return { image: this.data, baseImage: this.baseImage }; }
         }
 
-        // --- 4. Custom Block Tool: Voice Memo ---
+        // --- 3. Custom Block Tool: Voice Memo ---
         class VoiceMemo {
             static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
             constructor({data}) {
                 this.data = data.url || null; this.recorder = null; this.chunks = [];
-                this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div'), trigger: document.createElement('span') };
+                this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div') };
             }
             render() {
                 this.nodes.wrapper.className = 'v-memo';
                 this.nodes.button.className = 'v-memo__btn';
-                this.nodes.button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>';
+                this.nodes.button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="min-width: 16px; min-height: 16px;"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>';
                 this.nodes.status.className = 'v-memo__status';
                 this.nodes.status.innerText = this.data ? 'Recording saved' : 'Click to record audio';
                 this.nodes.audio.controls = true;
-                this.nodes.trigger.style.display = 'none';
                 
                 if (this.data) this.nodes.audio.src = this.data; else this.nodes.audio.style.display = 'none';
                 this.nodes.button.onclick = () => this.toggleRecording();
-                this.nodes.wrapper.append(this.nodes.button, this.nodes.status, this.nodes.audio, this.nodes.trigger);
+                this.nodes.wrapper.append(this.nodes.button, this.nodes.status, this.nodes.audio);
                 return this.nodes.wrapper;
             }
             async toggleRecording() {
@@ -450,13 +489,7 @@
                         this.recorder.onstop = () => {
                             const blob = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
                             const reader = new FileReader();
-                            reader.onloadend = () => { 
-                                this.data = reader.result; 
-                                this.nodes.audio.src = this.data; 
-                                this.nodes.audio.style.display = 'block'; 
-                                this.nodes.status.innerText = 'Saved'; 
-                                this.nodes.trigger.innerText = Date.now(); // Triggers EditorJS auto-save
-                            };
+                            reader.onloadend = () => { this.data = reader.result; this.nodes.audio.src = this.data; this.nodes.audio.style.display = 'block'; this.nodes.status.innerText = 'Saved'; };
                             reader.readAsDataURL(blob);
                         };
                         this.recorder.start();
@@ -467,58 +500,70 @@
             save() { return { url: this.data }; }
         }
 
-        // --- Init Editor ---
-        window.addEventListener('load', async () => {
-            let savedData = await DB.get('main_note');
-            if (!savedData || !savedData.blocks || savedData.blocks.length === 0) {
-                savedData = {
-                    blocks: [
-                        { type: "paragraph", data: { text: "Type '/' to add a Calendar Event or sketch!" } }
-                    ]
-                };
-            }
+        // --- Editor Initialization ---
+        const defaultData = {
+            blocks: [
+                { type: "header", data: { text: "App Mode Activated", level: 1 } },
+                { type: "paragraph", data: { text: "No more horizontal scrolling! If you are on a phone, try using your browser's <b>Add to Home Screen</b> button. It will now install as a native-feeling app." } }
+            ]
+        };
 
-            const inlineToolbarConfig = ['emoji', 'Marker', 'inlineCode', 'underline', 'Color', 'link'];
+        const inlineToolbarConfig = ['emoji', 'Marker', 'inlineCode', 'underline', 'Color', 'link'];
 
-            const editor = new EditorJS({
-                holder: 'editorjs',
-                placeholder: 'Type "/" for commands...',
-                data: savedData,
-                tools: {
-                    header: { class: Header, inlineToolbar: inlineToolbarConfig, config: { levels: [1, 2, 3], defaultLevel: 2 } },
-                    list: { class: NestedList, inlineToolbar: inlineToolbarConfig },
-                    checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
-                    quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
-                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, toggle: ToggleBlock,
-                    
-                    // Unified Custom Suite
-                    calendar: CalendarTool,
-                    canvas: CanvasTool,
-                    voice: VoiceMemo,
-                    emoji: EmojiInlineTool,
-                    
-                    // Formatting
-                    Marker: Marker, inlineCode: InlineCode, underline: Underline,
-                    Color: { class: window.ColorPlugin, config: { colorCollections: ['#EF4444','#F59E0B','#10B981','#3B82F6','#111827', '#F3F4F6'], defaultColor: '#111827', type: 'text' } }
-                },
-                onReady: () => {
-                    if (typeof Undo !== 'undefined') new Undo({ editor });
-                    if (typeof DragDrop !== 'undefined') new DragDrop(editor);
-                    
-                    document.addEventListener('click', (e) => {
-                        if (!e.target.closest('.ce-inline-toolbar')) {
-                            document.querySelectorAll('.emoji-picker-wrapper').forEach(p => p.style.display = 'none');
-                        }
-                    });
-                },
-                onChange: async () => {
-                    try {
-                        const outputData = await editor.save();
-                        await DB.set('main_note', outputData);
-                    } catch(e) { /* Safe fail */ }
+        function buildTools() {
+            return {
+                header: { class: Header, inlineToolbar: inlineToolbarConfig, config: { levels: [1, 2, 3], defaultLevel: 2 } },
+                list: { class: NestedList, inlineToolbar: inlineToolbarConfig },
+                checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
+                quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
+                code: CodeTool,
+                embed: Embed,
+                table: Table,
+                delimiter: Delimiter,
+                alert: Alert,
+                toggle: ToggleBlock,
+                
+                canvas: CanvasTool,
+                voice: VoiceMemo,
+                emoji: EmojiInlineTool,
+                
+                Marker: Marker,
+                inlineCode: InlineCode,
+                underline: Underline,
+                Color: { 
+                    class: window.ColorPlugin, 
+                    config: { 
+                        colorCollections: ['#EF4444','#F59E0B','#10B981','#3B82F6','#111827', '#F3F4F6'], 
+                        defaultColor: '#111827', 
+                        type: 'text' 
+                    } 
                 }
-            });
+            };
+        }
+
+        const editor = new EditorJS({
+            holder: 'editorjs',
+            placeholder: 'Type "/" for commands...',
+            data: localStorage.getItem(STORAGE_KEY) ? JSON.parse(localStorage.getItem(STORAGE_KEY)) : defaultData,
+            tools: buildTools(),
+            onReady: () => {
+                if (typeof Undo !== 'undefined') new Undo({ editor });
+                if (typeof DragDrop !== 'undefined') new DragDrop(editor);
+                
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.ce-inline-toolbar')) {
+                        document.querySelectorAll('.emoji-picker-wrapper').forEach(p => p.style.display = 'none');
+                    }
+                });
+            },
+            onChange: async () => {
+                const outputData = await editor.save();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(outputData));
+            }
         });
     </script>
 </body>
 </html>
+
+
+```
