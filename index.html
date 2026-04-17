@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,11 +12,11 @@
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
     
-    <!-- Dynamic Manifest & Icons will be injected via JS below to bypass the single-file limitation -->
+    <!-- Dynamic Manifest & Icons -->
     <link id="pwa-manifest" rel="manifest" href="">
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMDAwMCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4bC02LTZ6Ii8+PC9zdmc+">
 
-    <!-- Editor.js Core & Plugins -->
+    <!-- Editor.js Core & Essential Plugins ONLY -->
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@latest"></script>
@@ -27,33 +26,37 @@
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-toggle-block@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-alert@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-text-color-plugin@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-drag-drop@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/editorjs-undo@latest"></script>
 
     <!-- Emoji Picker Element -->
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 
     <style>
-        /* --- Pure Flat Theme Variables --- */
+        /* --- Standardized Pure Flat Theme Variables --- */
         :root {
+            /* Colors */
             --bg-color: #ffffff;
             --text-color: #000000;
             --border-color: #e0e0e0;
             --muted-bg: #f5f5f5;
             --muted-text: #666666;
             --accent-color: #000000;
-            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             --editor-toolbar-bg: #ffffff;
             --editor-hover-bg: #ebebeb;
             --overlay-bg: transparent; 
+            
+            /* Typography & Layout */
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             --keyboard-offset: 0px; 
             --safe-area-top: env(safe-area-inset-top, 0px);
+
+            /* Standardization Variables for Custom Blocks */
+            --std-border-radius: 8px;
+            --std-padding: 12px 14px;
+            --std-margin: 8px 0;
+            --std-icon-size: 20px;
+            --std-control-height: 34px;
         }
 
         /* True Flat Dark Mode */
@@ -77,7 +80,6 @@
             margin: 0; 
             padding: 0; 
             line-height: 1.6; 
-            /* Strict constraint to prevent horizontal scrolling */
             width: 100vw;
             overflow-x: hidden; 
         }
@@ -86,22 +88,17 @@
             max-width: 750px; 
             width: 100%;
             margin: 0 auto; 
-            /* Added env() for PWA notch safety */
             padding: calc(10vh + var(--safe-area-top)) 20px 65vh 20px; 
             box-sizing: border-box; 
         }
         
         ::-webkit-scrollbar { width: 0px; background: transparent; }
-        ::-webkit-scrollbar:horizontal { display: none; } /* Kill horizontal scrollbars */
+        ::-webkit-scrollbar:horizontal { display: none; }
 
         .ce-block__content, .ce-toolbar__content { 
             max-width: 100% !important; 
-            /* Ensure text wraps instead of pushing boundaries */
-            overflow-wrap: break-word;
-            word-wrap: break-word;
         }
 
-        /* Prevent SVGs from squishing */
         svg { flex-shrink: 0; }
 
         /* Main Buttons */
@@ -123,13 +120,12 @@
             .ce-block--selected .ce-block__content { background-color: var(--editor-hover-bg) !important; }
             ::selection { background: #444444 !important; color: #ffffff; }
             .ce-code__textarea { background: var(--muted-bg) !important; color: var(--text-color) !important; border: 1px solid var(--border-color) !important; }
-            .ce-inline-tool-code { background: var(--muted-bg) !important; color: var(--text-color) !important; word-break: break-word; }
-            cdx-marker { background: #4a4a00 !important; color: var(--text-color) !important; }
             .tc-wrap, .tc-row::after, .tc-cell { border-color: var(--border-color) !important; }
-            /* Tables scroll horizontally internally instead of page */
-            .tc-wrap { overflow-x: auto; max-width: 100vw; }
             emoji-picker { --background: var(--editor-toolbar-bg); --border-color: var(--border-color); --input-border-color: var(--border-color); --category-icon-color: var(--muted-text); }
         }
+
+        /* --- Table Fix --- */
+        .tc-wrap { overflow-x: auto; width: 100%; max-width: 100%; box-sizing: border-box; }
 
         /* --- Mobile Keyboard Fix CSS --- */
         @media (max-width: 650px) {
@@ -140,25 +136,58 @@
             }
         }
 
-        /* Custom Tools Styles */
-        .v-memo { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin: 10px 0; max-width: 100%; box-sizing: border-box; }
-        .v-memo__btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; min-width: 36px; }
-        .v-memo__btn svg { min-width: 16px; min-height: 16px; width: 16px; height: 16px; } 
+        /* --- STANDARDIZED Custom Tools Framework --- */
+        .custom-block-wrapper {
+            margin: var(--std-margin);
+            border-radius: var(--std-border-radius);
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            box-sizing: border-box;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* Voice Memo */
+        .v-memo { padding: var(--std-padding); display: flex; align-items: center; gap: 12px; }
+        .v-memo__btn { width: var(--std-control-height); height: var(--std-control-height); border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; min-width: var(--std-control-height); }
+        .v-memo__btn svg { width: var(--std-icon-size); height: var(--std-icon-size); } 
         .v-memo__btn.recording { color: #ffffff; border-color: #ef4444; background: #ef4444; animation: pulse 1.5s infinite; }
         .v-memo__status { font-size: 14px; color: var(--muted-text); flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        audio { height: 32px; max-width: 150px; outline: none; flex-shrink: 1; }
+        audio { height: var(--std-control-height); max-width: 150px; outline: none; flex-shrink: 1; border-radius: var(--std-border-radius); }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* Minimal Canvas Styles */
-        .canvas-container { border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-color); margin: 10px 0; max-width: 100%; box-sizing: border-box;}
-        .canvas-wrapper { width: 100%; overflow: hidden; display: flex; justify-content: center; background: var(--bg-color); }
+        /* Canvas Tool */
+        .canvas-wrapper { width: 100%; display: flex; justify-content: center; background: var(--bg-color); }
         canvas { touch-action: none; background: transparent; cursor: crosshair; display: block; max-width: 100%; height: auto !important; }
         
-        /* Popover Settings Styles for Canvas */
-        .canvas-color-setting { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; background-color: transparent; transition: transform 0.1s; flex-shrink: 0; }
-        .canvas-color-setting.active { transform: scale(1.2); outline: 2px solid var(--text-color); outline-offset: 1px; border-color: transparent; }
+        /* Standardized Popover Settings Styles for Canvas */
+        .canvas-settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 4px;
+        }
+        .canvas-color-setting { 
+            width: 24px; 
+            height: 24px; 
+            border-radius: 50%; 
+            border: 1px solid var(--border-color); 
+            cursor: pointer; 
+            padding: 0; 
+            background-color: transparent; 
+            transition: transform 0.1s; 
+            flex-shrink: 0; 
+        }
+        .canvas-color-setting.active { 
+            transform: scale(1.2); 
+            outline: 2px solid var(--text-color); 
+            outline-offset: 1px; 
+            border-color: transparent; 
+        }
 
-        .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: 6px; display: none; background: var(--editor-toolbar-bg); max-width: 90vw; }
+        .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: var(--std-border-radius); display: none; background: var(--editor-toolbar-bg); max-width: 90vw; }
         emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; width: 100%; }
     </style>
 </head>
@@ -170,7 +199,6 @@
         const STORAGE_KEY = 'ultimate_notes_pure_flat_v6';
 
         // --- PWA Setup ---
-        // Dynamically generating a Web Manifest blob so this runs entirely as a single file app
         const pwaManifest = {
             "name": "Infinite Notes",
             "short_name": "Notes",
@@ -270,7 +298,7 @@
                 this.canvas = null;
                 this.ctx = null;
                 this.wrapper = document.createElement('div');
-                this.wrapper.className = 'canvas-container';
+                this.wrapper.className = 'custom-block-wrapper';
             }
 
             render() {
@@ -292,8 +320,6 @@
                 };
 
                 const loadAndDraw = () => {
-                    // DYNAMIC SIZING: Ensure it never exceeds the screen width
-                    // Fallback to window width minus padding if wrapper clientWidth isn't ready
                     const dynamicMaxWidth = this.wrapper.clientWidth > 0 ? this.wrapper.clientWidth : (window.innerWidth - 40);
 
                     if (this.baseImage && this.baseImage !== 'blank') {
@@ -308,14 +334,12 @@
                         };
                         img.src = imgSrcToLoad;
                     } else {
-                        // Default blank whiteboard sizes dynamically
                         this.canvas.width = dynamicMaxWidth;
-                        this.canvas.height = Math.min(400, dynamicMaxWidth * 0.75); // 4:3 ratio ish
+                        this.canvas.height = Math.min(400, dynamicMaxWidth * 0.75); 
                         initContext();
                         if (this.data) {
                             const img = new Image();
                             img.onload = () => {
-                                // Draw existing data scaled down if screen is smaller
                                 this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
                             }
                             img.src = this.data;
@@ -323,7 +347,6 @@
                     }
                 };
                 
-                // Allow DOM to settle before measuring
                 setTimeout(loadAndDraw, 10);
 
                 let isDrawing = false;
@@ -358,11 +381,7 @@
                 const wrapper = document.createElement('div');
                 
                 const colorRow = document.createElement('div');
-                colorRow.style.display = 'flex';
-                colorRow.style.justifyContent = 'space-around';
-                colorRow.style.padding = '12px 10px';
-                colorRow.style.borderBottom = '1px solid var(--border-color)';
-                colorRow.style.marginBottom = '4px';
+                colorRow.className = 'canvas-settings-row';
                 
                 const colors = ['#000000', '#EF4444', '#3B82F6', '#10B981', '#ffffff'];
                 colors.forEach(color => {
@@ -466,9 +485,9 @@
                 this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div') };
             }
             render() {
-                this.nodes.wrapper.className = 'v-memo';
+                this.nodes.wrapper.className = 'custom-block-wrapper v-memo'; 
                 this.nodes.button.className = 'v-memo__btn';
-                this.nodes.button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="min-width: 16px; min-height: 16px;"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>';
+                this.nodes.button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>';
                 this.nodes.status.className = 'v-memo__status';
                 this.nodes.status.innerText = this.data ? 'Recording saved' : 'Click to record audio';
                 this.nodes.audio.controls = true;
@@ -503,12 +522,14 @@
         // --- Editor Initialization ---
         const defaultData = {
             blocks: [
-                { type: "header", data: { text: "App Mode Activated", level: 1 } },
-                { type: "paragraph", data: { text: "No more horizontal scrolling! If you are on a phone, try using your browser's <b>Add to Home Screen</b> button. It will now install as a native-feeling app." } }
+                { type: "header", data: { text: "Ultra-Light App", level: 1 } },
+                { type: "paragraph", data: { text: "Removed 6 unnecessary plugins! Drag and drop is built-in natively, and OS-level undo handles mistakes much better. Load speeds should be dramatically improved." } },
+                { type: "list", data: { style: "unordered", items: ["To use lists, just type a dash '-' and hit space!"] } }
             ]
         };
 
-        const inlineToolbarConfig = ['emoji', 'Marker', 'inlineCode', 'underline', 'Color', 'link'];
+        // Simplified toolbar to core native items + our custom emoji picker
+        const inlineToolbarConfig = ['emoji', 'link', 'bold', 'italic'];
 
         function buildTools() {
             return {
@@ -525,19 +546,7 @@
                 
                 canvas: CanvasTool,
                 voice: VoiceMemo,
-                emoji: EmojiInlineTool,
-                
-                Marker: Marker,
-                inlineCode: InlineCode,
-                underline: Underline,
-                Color: { 
-                    class: window.ColorPlugin, 
-                    config: { 
-                        colorCollections: ['#EF4444','#F59E0B','#10B981','#3B82F6','#111827', '#F3F4F6'], 
-                        defaultColor: '#111827', 
-                        type: 'text' 
-                    } 
-                }
+                emoji: EmojiInlineTool
             };
         }
 
@@ -547,8 +556,7 @@
             data: localStorage.getItem(STORAGE_KEY) ? JSON.parse(localStorage.getItem(STORAGE_KEY)) : defaultData,
             tools: buildTools(),
             onReady: () => {
-                if (typeof Undo !== 'undefined') new Undo({ editor });
-                if (typeof DragDrop !== 'undefined') new DragDrop(editor);
+                // Drag & Drop and Undo init removed (handled natively now)
                 
                 document.addEventListener('click', (e) => {
                     if (!e.target.closest('.ce-inline-toolbar')) {
@@ -564,6 +572,3 @@
     </script>
 </body>
 </html>
-
-
-```
