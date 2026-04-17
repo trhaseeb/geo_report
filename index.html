@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Infinite Notes</title>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest" defer></script>
+    
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #fff; color: #000; margin: 0; }
+        #editorjs { max-width: 750px; margin: 50px auto; padding: 0 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="editorjs"></div>
+
+    <script type="module">
+        // 1. Import our Database module statically (since it's critical infrastructure)
+        import Database from './modules/Database.js';
+        const db = new Database();
+
+        // 2. Define the custom modules we *want* to load
+        const desiredModules = {
+            canvas: 'CanvasTool.js',
+            voice: 'VoiceMemo.js',
+            emoji: 'EmojiTool.js' // If this file doesn't exist yet, it will fail silently!
+        };
+
+        // 3. Dynamic Module Loader
+        async function loadModules() {
+            const loadedTools = {};
+            
+            for (const [toolName, fileName] of Object.entries(desiredModules)) {
+                try {
+                    // Dynamically fetch the module
+                    const module = await import(`./modules/${fileName}`);
+                    loadedTools[toolName] = module.default;
+                    console.log(`✅ Successfully loaded: ${fileName}`);
+                } catch (error) {
+                    // SILENT FAILURE: If a file is missing or corrupted, we log a warning and move on.
+                    console.warn(`⚠️ Skipping module: ${fileName} (Not found or corrupted)`);
+                }
+            }
+            return loadedTools;
+        }
+
+        // 4. Initialize Editor
+        async function initEditor() {
+            // Load saved data from IndexedDB
+            const savedData = await db.load('main_note') || {};
+            
+            // Load the custom modules that successfully survived
+            const customTools = await loadModules();
+
+            // Initialize Editor.js
+            const editor = new EditorJS({
+                holder: 'editorjs',
+                data: savedData,
+                tools: {
+                    header: Header, // Loaded via CDN
+                    ...customTools  // Spread the dynamically loaded tools!
+                },
+                onChange: async () => {
+                    const outputData = await editor.save();
+                    await db.save('main_note', outputData);
+                    console.log('Saved to IndexedDB');
+                }
+            });
+        }
+
+        // Wait for CDNs to load, then initialize
+        window.addEventListener('load', initEditor);
+    </script>
+</body>
+</html>
