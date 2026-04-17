@@ -16,20 +16,19 @@
     <link id="pwa-manifest" rel="manifest" href="">
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMDAwMCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4bC02LTZ6Ii8+PC9zdmc+">
 
-    <!-- Editor.js Core & Essential Plugins ONLY -->
+    <!-- Editor.js Core & Official Core Plugins ONLY -->
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-toggle-block@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-alert@latest"></script>
 
-    <!-- Emoji Picker Element -->
+    <!-- Emoji Picker Element (Zero Dependency Web Component) -->
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 
     <style>
@@ -522,9 +521,8 @@
         // --- Editor Initialization ---
         const defaultData = {
             blocks: [
-                { type: "header", data: { text: "Ultra-Light App", level: 1 } },
-                { type: "paragraph", data: { text: "Removed 6 unnecessary plugins! Drag and drop is built-in natively, and OS-level undo handles mistakes much better. Load speeds should be dramatically improved." } },
-                { type: "list", data: { style: "unordered", items: ["To use lists, just type a dash '-' and hit space!"] } }
+                { type: "header", data: { text: "No Extraneous Imports", level: 1 } },
+                { type: "paragraph", data: { text: "The app is now down to just the absolute essentials. The embed script has been removed, saving further memory." } }
             ]
         };
 
@@ -538,7 +536,6 @@
                 checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
                 quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
                 code: CodeTool,
-                embed: Embed,
                 table: Table,
                 delimiter: Delimiter,
                 alert: Alert,
@@ -556,8 +553,6 @@
             data: localStorage.getItem(STORAGE_KEY) ? JSON.parse(localStorage.getItem(STORAGE_KEY)) : defaultData,
             tools: buildTools(),
             onReady: () => {
-                // Drag & Drop and Undo init removed (handled natively now)
-                
                 document.addEventListener('click', (e) => {
                     if (!e.target.closest('.ce-inline-toolbar')) {
                         document.querySelectorAll('.emoji-picker-wrapper').forEach(p => p.style.display = 'none');
