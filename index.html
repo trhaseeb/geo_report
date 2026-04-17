@@ -2,76 +2,406 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ultimate Infinite Notes</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest" defer></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-toggle-block@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-alert@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-text-color-plugin@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-drag-drop@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-undo@latest" defer></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js" defer></script>
+
     <style>
-        body { font-family: -apple-system, sans-serif; background: #fff; color: #000; margin: 0; }
-        #editorjs { max-width: 750px; margin: 50px auto; padding: 0 20px; }
+        /* --- Pure Flat Theme Variables --- */
+        :root {
+            --bg-color: #ffffff; --text-color: #000000; --border-color: #e0e0e0;
+            --muted-bg: #f5f5f5; --muted-text: #666666; --accent-color: #000000;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --editor-toolbar-bg: #ffffff; --editor-hover-bg: #ebebeb; --overlay-bg: transparent; 
+            --keyboard-offset: 0px; 
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212; --text-color: #ffffff; --border-color: #333333;
+                --muted-bg: #1e1e1e; --muted-text: #aaaaaa; --accent-color: #ffffff;
+                --editor-toolbar-bg: #1e1e1e; --editor-hover-bg: #2a2a2a; 
+            }
+        }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); margin: 0; padding: 0; line-height: 1.6; overflow-x: hidden; }
+        #editorjs { max-width: 750px; margin: 0 auto; padding: 10vh 20px 65vh 20px; box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .ce-block__content, .ce-toolbar__content { max-width: 100% !important; }
+        svg { flex-shrink: 0; }
+
+        /* Tools & Overlays */
+        .ce-toolbar__plus, .ce-toolbar__settings-btn { background-color: var(--bg-color) !important; color: var(--text-color) !important; border: 1px solid transparent; }
+        .ce-toolbar__plus:hover, .ce-toolbar__settings-btn:hover { background-color: var(--editor-hover-bg) !important; border-color: var(--border-color); }
+        .ce-popover__overlay, .ce-popover-overlay, .cdx-overlay { background: var(--overlay-bg) !important; box-shadow: none !important; backdrop-filter: none !important; }
+
+        @media (prefers-color-scheme: dark) {
+            .ce-popover, .ce-popover__container, .ce-popover__panel, .ce-popover__items, .ce-inline-toolbar, .ce-conversion-toolbar, .ce-settings, .ce-tooltip, .tc-popover { background: var(--editor-toolbar-bg) !important; border-color: var(--border-color) !important; box-shadow: none !important; }
+            .ce-popover-item, .ce-inline-tool, .ce-conversion-tool, .ce-settings__button { background-color: transparent !important; color: var(--text-color) !important; }
+            .ce-popover-item__title { color: var(--text-color) !important; }
+            .ce-popover-item:hover, .ce-inline-tool:hover, .ce-conversion-tool:hover, .ce-settings__button:hover { background-color: var(--editor-hover-bg) !important; }
+            .ce-popover-item__icon, .ce-popover-item__icon--active, .ce-popover__item-icon { background-color: var(--muted-bg) !important; color: var(--text-color) !important; box-shadow: none !important; border-color: var(--border-color) !important; }
+            .cdx-search-field, .cdx-input { background-color: var(--muted-bg) !important; color: var(--text-color) !important; border: 1px solid var(--border-color) !important; box-shadow: none !important; }
+            .ce-block--selected .ce-block__content { background-color: var(--editor-hover-bg) !important; }
+            ::selection { background: #444444 !important; color: #ffffff; }
+            .ce-code__textarea, .cdx-warning { background: var(--muted-bg) !important; color: var(--text-color) !important; border-color: var(--border-color) !important; }
+            cdx-marker { background: #4a4a00 !important; color: var(--text-color) !important; }
+            emoji-picker { --background: var(--editor-toolbar-bg); --border-color: var(--border-color); --input-border-color: var(--border-color); --category-icon-color: var(--muted-text); }
+        }
+
+        @media (max-width: 650px) {
+            .ce-popover, .ce-settings, .ce-inline-toolbar {
+                bottom: var(--keyboard-offset, 0px) !important;
+                max-height: calc(100vh - var(--keyboard-offset, 0px) - 20px) !important;
+                transition: bottom 0.2s cubic-bezier(0.1, 0.7, 0.1, 1), max-height 0.2s ease;
+            }
+        }
+
+        /* Unified Canvas CSS */
+        .canvas-container { border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-color); margin: 10px 0; }
+        .canvas-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--muted-bg); border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 8px;}
+        .canvas-colors { display: flex; gap: 6px; align-items: center; }
+        .canvas-color { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; }
+        .canvas-color.active { outline: 2px solid var(--text-color); outline-offset: -4px; }
+        .canvas-action-btn { background: var(--bg-color); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; color: var(--text-color); }
+        .canvas-wrapper { width: 100%; overflow: hidden; display: flex; justify-content: center; background: var(--bg-color); position: relative; }
+        canvas { touch-action: none; background: transparent; cursor: crosshair; display: block; max-width: 100%; }
+
+        /* Voice Memo CSS */
+        .v-memo { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+        .v-memo__btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; }
+        .v-memo__btn.recording { color: #ffffff; border-color: #ef4444; background: #ef4444; animation: pulse 1.5s infinite; }
+        .v-memo__status { font-size: 14px; color: var(--muted-text); flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        audio { height: 32px; max-width: 200px; outline: none; flex-shrink: 0; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: 6px; display: none; background: var(--editor-toolbar-bg); }
+        emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; }
     </style>
 </head>
 <body>
 
     <div id="editorjs"></div>
 
-    <script type="module">
-        // 1. Import our Database module statically (since it's critical infrastructure)
-        import Database from './modules/Database.js';
-        const db = new Database();
-
-        // 2. Define the custom modules we *want* to load
-        const desiredModules = {
-            canvas: 'CanvasTool.js',
-            voice: 'VoiceMemo.js',
-            emoji: 'EmojiTool.js' // If this file doesn't exist yet, it will fail silently!
+    <script>
+        // --- Tiny Vanilla IndexedDB Wrapper ---
+        const DB = {
+            dbName: 'UltimateNotesDB',
+            storeName: 'notes',
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(this.dbName, 1);
+                    req.onupgradeneeded = e => e.target.result.createObjectStore(this.storeName);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            },
+            async get(key) {
+                const db = await this.init();
+                return new Promise(resolve => {
+                    const req = db.transaction(this.storeName).objectStore(this.storeName).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                });
+            },
+            async set(key, val) {
+                const db = await this.init();
+                return new Promise(resolve => {
+                    const req = db.transaction(this.storeName, 'readwrite').objectStore(this.storeName).put(val, key);
+                    req.onsuccess = () => resolve(true);
+                });
+            }
         };
 
-        // 3. Dynamic Module Loader
-        async function loadModules() {
-            const loadedTools = {};
-            
-            for (const [toolName, fileName] of Object.entries(desiredModules)) {
-                try {
-                    // Dynamically fetch the module
-                    const module = await import(`./modules/${fileName}`);
-                    loadedTools[toolName] = module.default;
-                    console.log(`✅ Successfully loaded: ${fileName}`);
-                } catch (error) {
-                    // SILENT FAILURE: If a file is missing or corrupted, we log a warning and move on.
-                    console.warn(`⚠️ Skipping module: ${fileName} (Not found or corrupted)`);
+        // --- Mobile Keyboard Fix ---
+        if (window.visualViewport) {
+            const updateOffset = () => {
+                const safeOffset = Math.max(0, window.innerHeight - window.visualViewport.height);
+                document.documentElement.style.setProperty('--keyboard-offset', `${safeOffset}px`);
+                if (safeOffset > 100) {
+                    setTimeout(() => document.querySelector('.ce-block--focused')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+                }
+            };
+            window.visualViewport.addEventListener('resize', updateOffset);
+            window.visualViewport.addEventListener('scroll', updateOffset);
+            updateOffset();
+        }
+
+        // --- 1. Custom Inline Tool: Emoji Picker ---
+        class EmojiInlineTool {
+            static get isInline() { return true; }
+            get shortcut() { return 'CMD+E'; }
+            constructor({api}) { this.api = api; this.button = null; this.pickerWrapper = null; this.savedRange = null; }
+            render() {
+                this.button = document.createElement('button');
+                this.button.type = 'button';
+                this.button.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>';
+                this.button.classList.add(this.api.styles.inlineToolButton);
+                this.button.style.position = 'relative';
+
+                this.pickerWrapper = document.createElement('div');
+                this.pickerWrapper.className = 'emoji-picker-wrapper';
+                const picker = document.createElement('emoji-picker');
+                picker.addEventListener('emoji-click', e => {
+                    this.insertEmoji(e.detail.unicode);
+                    this.pickerWrapper.style.display = 'none';
+                });
+                this.pickerWrapper.appendChild(picker);
+                this.button.appendChild(this.pickerWrapper);
+                return this.button;
+            }
+            surround(range) {
+                if (!range) return;
+                this.savedRange = range.cloneRange();
+                const isVisible = this.pickerWrapper.style.display === 'block';
+                document.querySelectorAll('.emoji-picker-wrapper').forEach(p => p.style.display = 'none');
+                this.pickerWrapper.style.display = isVisible ? 'none' : 'block';
+            }
+            insertEmoji(emoji) {
+                if (this.savedRange) {
+                    this.savedRange.deleteContents();
+                    const textNode = document.createTextNode(emoji);
+                    this.savedRange.insertNode(textNode);
+                    this.savedRange.setStartAfter(textNode);
+                    this.savedRange.collapse(true);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(this.savedRange);
                 }
             }
-            return loadedTools;
+            checkState() { return false; }
         }
 
-        // 4. Initialize Editor
-        async function initEditor() {
-            // Load saved data from IndexedDB
-            const savedData = await db.load('main_note') || {};
-            
-            // Load the custom modules that successfully survived
-            const customTools = await loadModules();
+        // --- 2. Consolidated Tool: Canvas (Whiteboard + Photo Annotation) ---
+        class CanvasTool {
+            static get toolbox() { return { title: 'Canvas / Photo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' }; }
 
-            // Initialize Editor.js
+            constructor({data}) {
+                this.data = data.image || null;
+                this.baseImage = data.baseImage || null;
+                this.currentColor = '#EF4444'; 
+                this.canvas = null;
+                this.ctx = null;
+                this.wrapper = document.createElement('div');
+                this.wrapper.className = 'canvas-container';
+            }
+
+            render() {
+                this.wrapper.innerHTML = `
+                    <div class="canvas-toolbar">
+                        <div class="canvas-colors">
+                            <button class="canvas-color active" style="background:#EF4444" data-color="#EF4444"></button>
+                            <button class="canvas-color" style="background:#3B82F6" data-color="#3B82F6"></button>
+                            <button class="canvas-color" style="background:#10B981" data-color="#10B981"></button>
+                            <button class="canvas-color" style="background:#000000" data-color="#000000"></button>
+                            <button class="canvas-color" style="background:#ffffff" data-color="#ffffff"></button>
+                            <input type="file" id="file-upload-${Date.now()}" accept="image/*" style="display:none;">
+                            <button class="canvas-action-btn" onclick="document.getElementById('file-upload-${Date.now()}').click()">🖼️ Image</button>
+                        </div>
+                        <button class="canvas-action-btn clear-btn">Reset</button>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas width="750" height="400"></canvas>
+                    </div>
+                `;
+
+                this.canvas = this.wrapper.querySelector('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+
+                // Setup Colors
+                this.wrapper.querySelectorAll('.canvas-color').forEach(btn => {
+                    btn.onclick = (e) => {
+                        this.wrapper.querySelector('.active').classList.remove('active');
+                        e.target.classList.add('active');
+                        this.currentColor = e.target.getAttribute('data-color');
+                    };
+                });
+
+                // Setup Image Upload
+                this.wrapper.querySelector('input[type="file"]').onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (re) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                const scale = Math.min(1, 750 / img.width);
+                                this.canvas.width = img.width * scale;
+                                this.canvas.height = img.height * scale;
+                                this.baseImage = re.target.result;
+                                this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                                this.saveToData();
+                            };
+                            img.src = re.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+
+                // Setup Clear/Reset
+                this.wrapper.querySelector('.clear-btn').onclick = () => {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    if (this.baseImage) {
+                        const img = new Image();
+                        img.onload = () => this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                        img.src = this.baseImage;
+                    }
+                    this.saveToData();
+                };
+
+                // Load existing data
+                if (this.data || this.baseImage) {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.canvas.width = img.width;
+                        this.canvas.height = img.height;
+                        this.ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = this.data || this.baseImage;
+                }
+
+                // Drawing Engine
+                let isDrawing = false;
+                const getCoords = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    const scaleY = this.canvas.height / rect.height;
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+                };
+
+                const startDraw = (e) => { isDrawing = true; const {x, y} = getCoords(e); this.ctx.beginPath(); this.ctx.moveTo(x, y); };
+                const draw = (e) => { if (!isDrawing) return; e.preventDefault(); const {x, y} = getCoords(e); this.ctx.lineTo(x, y); this.ctx.strokeStyle = this.currentColor; this.ctx.lineWidth = 4; this.ctx.stroke(); };
+                const stopDraw = () => { if(isDrawing) { isDrawing = false; this.saveToData(); } };
+
+                this.canvas.addEventListener('mousedown', startDraw); 
+                this.canvas.addEventListener('mousemove', draw);
+                this.canvas.addEventListener('mouseup', stopDraw); 
+                this.canvas.addEventListener('mouseleave', stopDraw);
+                this.canvas.addEventListener('touchstart', startDraw, {passive: false}); 
+                this.canvas.addEventListener('touchmove', draw, {passive: false}); 
+                this.canvas.addEventListener('touchend', stopDraw);
+
+                return this.wrapper;
+            }
+
+            saveToData() { this.data = this.canvas.toDataURL('image/png'); }
+            save() { return { image: this.data, baseImage: this.baseImage }; }
+        }
+
+        // --- 3. Custom Block Tool: Voice Memo ---
+        class VoiceMemo {
+            static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
+            constructor({data}) {
+                this.data = data.url || null; this.recorder = null; this.chunks = [];
+                this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div') };
+            }
+            render() {
+                this.nodes.wrapper.className = 'v-memo';
+                this.nodes.button.className = 'v-memo__btn';
+                this.nodes.button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>';
+                this.nodes.status.className = 'v-memo__status';
+                this.nodes.status.innerText = this.data ? 'Recording saved' : 'Click to record audio';
+                this.nodes.audio.controls = true;
+                
+                if (this.data) this.nodes.audio.src = this.data; else this.nodes.audio.style.display = 'none';
+                this.nodes.button.onclick = () => this.toggleRecording();
+                this.nodes.wrapper.append(this.nodes.button, this.nodes.status, this.nodes.audio);
+                return this.nodes.wrapper;
+            }
+            async toggleRecording() {
+                if (this.recorder && this.recorder.state === 'recording') {
+                    this.recorder.stop(); this.nodes.button.classList.remove('recording'); this.nodes.status.innerText = 'Processing...';
+                } else {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        this.recorder = new MediaRecorder(stream); this.chunks = [];
+                        this.recorder.ondataavailable = (e) => this.chunks.push(e.data);
+                        this.recorder.onstop = () => {
+                            const blob = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
+                            const reader = new FileReader();
+                            reader.onloadend = () => { this.data = reader.result; this.nodes.audio.src = this.data; this.nodes.audio.style.display = 'block'; this.nodes.status.innerText = 'Saved'; };
+                            reader.readAsDataURL(blob);
+                        };
+                        this.recorder.start();
+                        this.nodes.button.classList.add('recording'); this.nodes.status.innerText = 'Recording...'; this.nodes.audio.style.display = 'none';
+                    } catch (err) { this.nodes.status.innerText = 'Mic access denied'; }
+                }
+            }
+            save() { return { url: this.data }; }
+        }
+
+        // --- Init Editor ---
+        window.addEventListener('load', async () => {
+            // Load saved data from IndexedDB instead of localStorage
+            let savedData = await DB.get('main_note');
+            if (!savedData) {
+                savedData = {
+                    blocks: [
+                        { type: "header", data: { text: "Ultimate Infinite Notes", level: 1 } },
+                        { type: "paragraph", data: { text: "Type '/' to start. Try out the consolidated Canvas/Photo tool!" } }
+                    ]
+                };
+            }
+
+            const inlineToolbarConfig = ['emoji', 'Marker', 'inlineCode', 'underline', 'Color', 'link'];
+
             const editor = new EditorJS({
                 holder: 'editorjs',
+                placeholder: 'Type "/" for commands...',
                 data: savedData,
                 tools: {
-                    header: Header, // Loaded via CDN
-                    ...customTools  // Spread the dynamically loaded tools!
+                    header: { class: Header, inlineToolbar: inlineToolbarConfig, config: { levels: [1, 2, 3], defaultLevel: 2 } },
+                    list: { class: NestedList, inlineToolbar: inlineToolbarConfig },
+                    checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
+                    quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
+                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, warning: Warning, alert: Alert, toggle: ToggleBlock,
+                    
+                    // Unified Custom Suite
+                    canvas: CanvasTool,
+                    voice: VoiceMemo,
+                    emoji: EmojiInlineTool,
+                    
+                    // Formatting
+                    Marker: Marker, inlineCode: InlineCode, underline: Underline,
+                    Color: { class: window.ColorPlugin, config: { colorCollections: ['#EF4444','#F59E0B','#10B981','#3B82F6','#111827', '#F3F4F6'], defaultColor: '#111827', type: 'text' } }
+                },
+                onReady: () => {
+                    if (typeof Undo !== 'undefined') new Undo({ editor });
+                    if (typeof DragDrop !== 'undefined') new DragDrop(editor);
+                    
+                    document.addEventListener('click', (e) => {
+                        if (!e.target.closest('.ce-inline-toolbar')) {
+                            document.querySelectorAll('.emoji-picker-wrapper').forEach(p => p.style.display = 'none');
+                        }
+                    });
                 },
                 onChange: async () => {
+                    // Save to IndexedDB automatically on change
                     const outputData = await editor.save();
-                    await db.save('main_note', outputData);
-                    console.log('Saved to IndexedDB');
+                    await DB.set('main_note', outputData);
                 }
             });
-        }
-
-        // Wait for CDNs to load, then initialize
-        window.addEventListener('load', initEditor);
+        });
     </script>
 </body>
 </html>
