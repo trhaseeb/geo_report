@@ -42,13 +42,7 @@
         }
         body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); margin: 0; padding: 0; line-height: 1.6; overflow-x: hidden; }
         
-        /* Fixed Header for Notification Button */
-        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-color); position: sticky; top: 0; z-index: 100; }
-        .app-header h1 { margin: 0; font-size: 18px; font-weight: 600; }
-        .notify-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; }
-        .notify-btn:hover { background: var(--muted-bg); }
-
-        #editorjs { max-width: 750px; margin: 0 auto; padding: 20px 20px 65vh 20px; box-sizing: border-box; }
+        #editorjs { max-width: 750px; margin: 0 auto; padding: 10vh 20px 65vh 20px; box-sizing: border-box; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         .ce-block__content, .ce-toolbar__content { max-width: 100% !important; }
         svg { flex-shrink: 0; }
@@ -112,44 +106,13 @@
 </head>
 <body>
 
-    <header class="app-header">
-        <h1>Ultimate Infinite Notes</h1>
-        <button class="notify-btn" id="notify-btn" onclick="requestNotificationPermission()">
-            🔔 Enable Alerts
-        </button>
-    </header>
-
     <div id="editorjs"></div>
 
     <script>
-        // --- Notifications Engine ---
-        function checkNotificationStatus() {
-            const btn = document.getElementById('notify-btn');
-            if (Notification.permission === 'granted') {
-                btn.innerHTML = '🔔 Alerts ON';
-                btn.style.color = '#10B981'; // Green
-                btn.style.borderColor = '#10B981';
-            } else if (Notification.permission === 'denied') {
-                btn.innerHTML = '🔕 Alerts Blocked';
-                btn.style.color = '#EF4444'; // Red
-            }
-        }
-
-        async function requestNotificationPermission() {
-            if (!("Notification" in window)) {
-                alert("This browser does not support desktop notification");
-                return;
-            }
-            const permission = await Notification.requestPermission();
-            checkNotificationStatus();
-            if (permission === "granted") {
-                new Notification("Ultimate Notes", { body: "Notifications enabled! We'll alert you for calendar events while the app is open." });
-            }
-        }
-
-        // The background cron job that checks the database every minute
+        // --- Safe Notification Checker Engine ---
         async function runNotificationChecker() {
-            if (Notification.permission !== 'granted') return;
+            // Safely check if Notifications are supported and granted
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
             
             const data = await DB.get('main_note');
             if (!data || !data.blocks) return;
@@ -161,18 +124,19 @@
                 if (block.type === 'calendar' && block.data.date && !block.data.notified) {
                     const eventTime = new Date(block.data.date).getTime();
                     
-                    // If the time has passed, but it's not older than a day (so we don't spam old missed events)
+                    // If the time has passed, but it's not older than a day
                     if (eventTime <= now && (now - eventTime) < 86400000) {
-                        new Notification("🗓️ Event Reminder", { 
-                            body: block.data.text || "You have a scheduled event right now."
-                        });
-                        block.data.notified = true; // Mark as fired
+                        try {
+                            new Notification("🗓️ Event Reminder", { 
+                                body: block.data.text || "You have a scheduled event right now."
+                            });
+                        } catch(e) { /* Silent fail if constructor throws */ }
+                        block.data.notified = true; 
                         needsSave = true;
                     }
                 }
             });
 
-            // If we marked an event as 'notified', update the DB so it doesn't fire again
             if (needsSave) await DB.set('main_note', data);
         }
 
@@ -238,8 +202,17 @@
                     <input type="text" class="evt-text" placeholder="What happens then?" value="${this.data.text || ''}">
                 `;
                 
-                // If a user changes the date of an already notified event, reset it so it fires again
-                this.wrapper.querySelector('.evt-date').addEventListener('change', () => {
+                const dateInput = this.wrapper.querySelector('.evt-date');
+                
+                // Ask for permission quietly when they click to set a date!
+                dateInput.addEventListener('click', async () => {
+                    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                        try { await Notification.requestPermission(); } catch (e) { /* Silent fail */ }
+                    }
+                });
+
+                // Reset notification flag if they change the date
+                dateInput.addEventListener('change', () => {
                     this.data.notified = false; 
                 });
 
@@ -463,8 +436,6 @@
 
         // --- Init Editor ---
         window.addEventListener('load', async () => {
-            checkNotificationStatus(); // Update button UI on load
-
             let savedData = await DB.get('main_note');
             if (!savedData) {
                 savedData = {
@@ -510,9 +481,7 @@
                 onChange: async () => {
                     const outputData = await editor.save();
                     await DB.set('main_note', outputData);
-                    
-                    // Run the checker immediately just in case they set an event for *right now*
-                    runNotificationChecker();
+                    runNotificationChecker(); // Check immediately after save
                 }
             });
         });
