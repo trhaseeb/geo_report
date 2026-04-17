@@ -14,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest" defer></script>
@@ -42,7 +41,14 @@
             }
         }
         body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); margin: 0; padding: 0; line-height: 1.6; overflow-x: hidden; }
-        #editorjs { max-width: 750px; margin: 0 auto; padding: 10vh 20px 65vh 20px; box-sizing: border-box; }
+        
+        /* Fixed Header for Notification Button */
+        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-color); position: sticky; top: 0; z-index: 100; }
+        .app-header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+        .notify-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; }
+        .notify-btn:hover { background: var(--muted-bg); }
+
+        #editorjs { max-width: 750px; margin: 0 auto; padding: 20px 20px 65vh 20px; box-sizing: border-box; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         .ce-block__content, .ce-toolbar__content { max-width: 100% !important; }
         svg { flex-shrink: 0; }
@@ -61,7 +67,7 @@
             .cdx-search-field, .cdx-input { background-color: var(--muted-bg) !important; color: var(--text-color) !important; border: 1px solid var(--border-color) !important; box-shadow: none !important; }
             .ce-block--selected .ce-block__content { background-color: var(--editor-hover-bg) !important; }
             ::selection { background: #444444 !important; color: #ffffff; }
-            .ce-code__textarea, .cdx-warning { background: var(--muted-bg) !important; color: var(--text-color) !important; border-color: var(--border-color) !important; }
+            .ce-code__textarea { background: var(--muted-bg) !important; color: var(--text-color) !important; border-color: var(--border-color) !important; }
             cdx-marker { background: #4a4a00 !important; color: var(--text-color) !important; }
             emoji-picker { --background: var(--editor-toolbar-bg); --border-color: var(--border-color); --input-border-color: var(--border-color); --category-icon-color: var(--muted-text); }
         }
@@ -73,6 +79,10 @@
                 transition: bottom 0.2s cubic-bezier(0.1, 0.7, 0.1, 1), max-height 0.2s ease;
             }
         }
+
+        /* Input Resets for Custom Tools */
+        input[type="text"], input[type="datetime-local"] { background: var(--muted-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; font-family: inherit; font-size: 14px; outline: none; }
+        input[type="text"]:focus, input[type="datetime-local"]:focus { border-color: var(--text-color); }
 
         /* Unified Canvas CSS */
         .canvas-container { border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-color); margin: 10px 0; }
@@ -92,15 +102,84 @@
         audio { height: 32px; max-width: 200px; outline: none; flex-shrink: 0; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
+        /* Calendar Event CSS */
+        .calendar-evt { border: 1px solid var(--border-color); background: var(--bg-color); border-radius: 6px; padding: 12px; display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+        .calendar-evt input[type="text"] { flex-grow: 1; min-width: 200px; }
+
         .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: 6px; display: none; background: var(--editor-toolbar-bg); }
         emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; }
     </style>
 </head>
 <body>
 
+    <header class="app-header">
+        <h1>Ultimate Infinite Notes</h1>
+        <button class="notify-btn" id="notify-btn" onclick="requestNotificationPermission()">
+            🔔 Enable Alerts
+        </button>
+    </header>
+
     <div id="editorjs"></div>
 
     <script>
+        // --- Notifications Engine ---
+        function checkNotificationStatus() {
+            const btn = document.getElementById('notify-btn');
+            if (Notification.permission === 'granted') {
+                btn.innerHTML = '🔔 Alerts ON';
+                btn.style.color = '#10B981'; // Green
+                btn.style.borderColor = '#10B981';
+            } else if (Notification.permission === 'denied') {
+                btn.innerHTML = '🔕 Alerts Blocked';
+                btn.style.color = '#EF4444'; // Red
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alert("This browser does not support desktop notification");
+                return;
+            }
+            const permission = await Notification.requestPermission();
+            checkNotificationStatus();
+            if (permission === "granted") {
+                new Notification("Ultimate Notes", { body: "Notifications enabled! We'll alert you for calendar events while the app is open." });
+            }
+        }
+
+        // The background cron job that checks the database every minute
+        async function runNotificationChecker() {
+            if (Notification.permission !== 'granted') return;
+            
+            const data = await DB.get('main_note');
+            if (!data || !data.blocks) return;
+
+            let needsSave = false;
+            const now = new Date().getTime();
+
+            data.blocks.forEach(block => {
+                if (block.type === 'calendar' && block.data.date && !block.data.notified) {
+                    const eventTime = new Date(block.data.date).getTime();
+                    
+                    // If the time has passed, but it's not older than a day (so we don't spam old missed events)
+                    if (eventTime <= now && (now - eventTime) < 86400000) {
+                        new Notification("🗓️ Event Reminder", { 
+                            body: block.data.text || "You have a scheduled event right now."
+                        });
+                        block.data.notified = true; // Mark as fired
+                        needsSave = true;
+                    }
+                }
+            });
+
+            // If we marked an event as 'notified', update the DB so it doesn't fire again
+            if (needsSave) await DB.set('main_note', data);
+        }
+
+        // Run the checker every 60 seconds
+        setInterval(runNotificationChecker, 60000);
+
+
         // --- Tiny Vanilla IndexedDB Wrapper ---
         const DB = {
             dbName: 'UltimateNotesDB',
@@ -143,7 +222,39 @@
             updateOffset();
         }
 
-        // --- 1. Custom Inline Tool: Emoji Picker ---
+        // --- 1. Custom Block Tool: Calendar / Event ---
+        class CalendarTool {
+            static get toolbox() { 
+                return { title: 'Event Reminder', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' }; 
+            }
+            constructor({data}) {
+                this.data = data || { date: '', text: '', notified: false };
+                this.wrapper = document.createElement('div');
+            }
+            render() {
+                this.wrapper.className = 'calendar-evt';
+                this.wrapper.innerHTML = `
+                    <input type="datetime-local" class="evt-date" value="${this.data.date}">
+                    <input type="text" class="evt-text" placeholder="What happens then?" value="${this.data.text || ''}">
+                `;
+                
+                // If a user changes the date of an already notified event, reset it so it fires again
+                this.wrapper.querySelector('.evt-date').addEventListener('change', () => {
+                    this.data.notified = false; 
+                });
+
+                return this.wrapper;
+            }
+            save(blockContent) {
+                return {
+                    date: blockContent.querySelector('.evt-date').value,
+                    text: blockContent.querySelector('.evt-text').value,
+                    notified: this.data.notified || false
+                };
+            }
+        }
+
+        // --- 2. Custom Inline Tool: Emoji Picker ---
         class EmojiInlineTool {
             static get isInline() { return true; }
             get shortcut() { return 'CMD+E'; }
@@ -188,7 +299,7 @@
             checkState() { return false; }
         }
 
-        // --- 2. Consolidated Tool: Canvas (Whiteboard + Photo Annotation) ---
+        // --- 3. Consolidated Tool: Canvas (Whiteboard + Photo Annotation) ---
         class CanvasTool {
             static get toolbox() { return { title: 'Canvas / Photo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' }; }
 
@@ -308,7 +419,7 @@
             save() { return { image: this.data, baseImage: this.baseImage }; }
         }
 
-        // --- 3. Custom Block Tool: Voice Memo ---
+        // --- 4. Custom Block Tool: Voice Memo ---
         class VoiceMemo {
             static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
             constructor({data}) {
@@ -352,13 +463,13 @@
 
         // --- Init Editor ---
         window.addEventListener('load', async () => {
-            // Load saved data from IndexedDB instead of localStorage
+            checkNotificationStatus(); // Update button UI on load
+
             let savedData = await DB.get('main_note');
             if (!savedData) {
                 savedData = {
                     blocks: [
-                        { type: "header", data: { text: "Ultimate Infinite Notes", level: 1 } },
-                        { type: "paragraph", data: { text: "Type '/' to start. Try out the consolidated Canvas/Photo tool!" } }
+                        { type: "paragraph", data: { text: "Type '/' to add a Calendar Event!" } }
                     ]
                 };
             }
@@ -374,9 +485,10 @@
                     list: { class: NestedList, inlineToolbar: inlineToolbarConfig },
                     checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
                     quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
-                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, warning: Warning, alert: Alert, toggle: ToggleBlock,
+                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, alert: Alert, toggle: ToggleBlock,
                     
                     // Unified Custom Suite
+                    calendar: CalendarTool,
                     canvas: CanvasTool,
                     voice: VoiceMemo,
                     emoji: EmojiInlineTool,
@@ -396,9 +508,11 @@
                     });
                 },
                 onChange: async () => {
-                    // Save to IndexedDB automatically on change
                     const outputData = await editor.save();
                     await DB.set('main_note', outputData);
+                    
+                    // Run the checker immediately just in case they set an event for *right now*
+                    runNotificationChecker();
                 }
             });
         });
