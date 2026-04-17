@@ -14,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@latest" defer></script>
@@ -61,7 +60,7 @@
             .cdx-search-field, .cdx-input { background-color: var(--muted-bg) !important; color: var(--text-color) !important; border: 1px solid var(--border-color) !important; box-shadow: none !important; }
             .ce-block--selected .ce-block__content { background-color: var(--editor-hover-bg) !important; }
             ::selection { background: #444444 !important; color: #ffffff; }
-            .ce-code__textarea, .cdx-warning { background: var(--muted-bg) !important; color: var(--text-color) !important; border-color: var(--border-color) !important; }
+            .ce-code__textarea { background: var(--muted-bg) !important; color: var(--text-color) !important; border-color: var(--border-color) !important; }
             cdx-marker { background: #4a4a00 !important; color: var(--text-color) !important; }
             emoji-picker { --background: var(--editor-toolbar-bg); --border-color: var(--border-color); --input-border-color: var(--border-color); --category-icon-color: var(--muted-text); }
         }
@@ -374,7 +373,7 @@
                     list: { class: NestedList, inlineToolbar: inlineToolbarConfig },
                     checklist: { class: Checklist, inlineToolbar: inlineToolbarConfig },
                     quote: { class: Quote, inlineToolbar: inlineToolbarConfig },
-                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, warning: Warning, alert: Alert, toggle: ToggleBlock,
+                    code: CodeTool, embed: Embed, table: Table, delimiter: Delimiter, alert: Alert, toggle: ToggleBlock,
                     
                     // Unified Custom Suite
                     canvas: CanvasTool,
