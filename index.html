@@ -52,7 +52,7 @@
             --std-padding: 12px 14px;
             --std-margin: 8px 0;
             --std-icon-size: 20px;
-            --std-control-height: 34px;
+            --std-control-height: 36px;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -79,9 +79,9 @@
         .ce-toolbar__plus:hover, .ce-toolbar__settings-btn:hover { background-color: var(--editor-hover-bg) !important; border-color: var(--border-color); }
         .ce-popover__overlay, .ce-popover-overlay, .cdx-overlay { background: var(--overlay-bg) !important; background-color: var(--overlay-bg) !important; box-shadow: none !important; backdrop-filter: none !important; }
 
+        /* Icon Standardizations */
         .ce-popover-item__icon svg { width: var(--std-icon-size) !important; height: var(--std-icon-size) !important; }
         .ce-popover-item__title { font-size: 14px !important; font-weight: 500 !important; }
-        .ce-popover-item { padding: 6px 10px !important; }
 
         @media (prefers-color-scheme: dark) {
             .ce-popover, .ce-popover__container, .ce-popover__panel, .ce-popover__items, .ce-inline-toolbar, .ce-conversion-toolbar, .ce-settings, .ce-tooltip, .tc-popover { background: var(--editor-toolbar-bg) !important; background-color: var(--editor-toolbar-bg) !important; border-color: var(--border-color) !important; box-shadow: none !important; }
@@ -127,7 +127,6 @@
         .cal-btn.primary:hover { opacity: 0.9; }
         .cal-btn.granted { background: #10B981; color: white; border-color: #10B981; }
 
-        /* Custom Date Picker UI */
         .cp-container { border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; background: var(--bg-color); margin-top: 4px; display: none; }
         .cp-container.open { display: block; animation: fadeIn 0.2s ease; }
         .cp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: bold; }
@@ -143,20 +142,27 @@
         .cp-time input, .cp-time select { background: var(--muted-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; padding: 4px 8px; font-family: inherit; font-size: 14px; outline: none; }
         .cp-time input[type="number"] { width: 40px; text-align: center; }
 
-        /* Voice Memo */
+        /* Voice Memo - Unified UI */
         .v-memo { padding: var(--std-padding); display: flex; align-items: center; gap: 12px; }
-        .v-memo__btn { width: var(--std-control-height); height: var(--std-control-height); border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; min-width: var(--std-control-height); }
-        .v-memo__btn svg { width: var(--std-icon-size); height: var(--std-icon-size); } 
+        .v-memo__btn { width: var(--std-control-height); height: var(--std-control-height); border-radius: 50%; border: 1px solid var(--border-color); background: var(--muted-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-color); flex-shrink: 0; min-width: var(--std-control-height); transition: all 0.2s; }
+        .v-memo__btn svg { width: 16px; height: 16px; } 
+        .v-memo__btn:hover { background: var(--editor-hover-bg); }
+        
+        /* Recording State */
         .v-memo__btn.recording { color: #ffffff; border-color: #ef4444; background: #ef4444; animation: pulse 1.5s infinite; }
-        .v-memo__status { font-size: 14px; color: var(--muted-text); flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        audio { height: var(--std-control-height); max-width: 150px; outline: none; flex-shrink: 1; border-radius: var(--std-border-radius); }
+        /* Playing State */
+        .v-memo__btn.playing { color: #ffffff; border-color: #3B82F6; background: #3B82F6; }
+        
+        .v-memo__status { font-size: 14px; color: var(--muted-text); flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
         
         /* Canvas Tool */
         .canvas-wrapper { width: 100%; display: flex; justify-content: center; background: var(--bg-color); }
         canvas { touch-action: none; background: transparent; cursor: crosshair; display: block; max-width: 100%; height: auto !important; }
-        .canvas-settings-row { display: flex; justify-content: space-around; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 2px; }
-        .canvas-color-setting { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; background-color: transparent; transition: transform 0.1s; flex-shrink: 0; }
-        .canvas-color-setting.active { transform: scale(1.2); outline: 2px solid var(--text-color); outline-offset: 1px; border-color: transparent; }
+        
+        /* Properly Formatted Canvas Color Grid */
+        .canvas-color-grid { display: flex; gap: 12px; width: 100%; justify-content: space-between; padding: 6px 12px; box-sizing: border-box; }
+        .canvas-color-setting { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; transition: transform 0.1s; background-clip: padding-box; }
+        .canvas-color-setting.active { transform: scale(1.15); box-shadow: 0 0 0 2px var(--editor-toolbar-bg), 0 0 0 4px var(--text-color); border-color: transparent; }
 
         .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: var(--std-border-radius); display: none; background: var(--editor-toolbar-bg); max-width: 90vw; }
         emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; width: 100%; }
@@ -238,12 +244,21 @@
             } catch (e) { }
         }, 5000); 
 
+        // --- Standard Custom Icons ---
+        const ICONS = {
+            mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
+            stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>',
+            play: '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
+            pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>',
+            image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+            trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>'
+        };
+
         // --- 1. Custom Block Tool: Calendar & Custom Date Picker ---
         class CalendarTool {
             static get toolbox() { return { title: 'Calendar Event', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' }; }
             
             constructor({data}) {
-                // Feature 1: Default to Exact Current Date & Time if new
                 this.data = {
                     title: data.title || '',
                     datetime: data.datetime || new Date().toISOString(),
@@ -253,7 +268,6 @@
                 this.viewDate = new Date(this.data.datetime); 
             }
 
-            // Beautifully formats the date for the display button
             formatDisplayDate() {
                 const d = new Date(this.data.datetime);
                 const datePart = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -270,13 +284,10 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                         <input type="text" class="cal-title" placeholder="Event Name / Reminder..." value="${this.data.title}">
                     </div>
-                    
                     <button class="cal-display-btn">
                         <span class="cal-display-text">${this.formatDisplayDate()}</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </button>
-                    
-                    <!-- Custom Flat Picker UI -->
                     <div class="cp-container">
                         <div class="cp-header">
                             <button class="cp-prev">&lt;</button>
@@ -293,7 +304,6 @@
                             <select class="cp-ampm"><option value="AM">AM</option><option value="PM">PM</option></select>
                         </div>
                     </div>
-
                     <div class="cal-actions">
                         <button class="cal-btn cal-export-btn primary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -306,25 +316,19 @@
                     </div>
                 `;
 
-                // --- DOM References ---
                 const titleInput = this.wrapper.querySelector('.cal-title');
                 const displayBtn = this.wrapper.querySelector('.cal-display-btn');
                 const displayTxt = this.wrapper.querySelector('.cal-display-text');
                 const picker = this.wrapper.querySelector('.cp-container');
                 const grid = this.wrapper.querySelector('.cp-grid');
                 const monthLabel = this.wrapper.querySelector('.cp-month-label');
-                
-                // Time inputs
                 const hourInput = this.wrapper.querySelector('.cp-hour');
                 const minInput = this.wrapper.querySelector('.cp-minute');
                 const ampmInput = this.wrapper.querySelector('.cp-ampm');
 
-                // --- Event Listeners ---
                 titleInput.oninput = (e) => { this.data.title = e.target.value; };
-                
                 displayBtn.onclick = () => { picker.classList.toggle('open'); this.renderGrid(); };
 
-                // Custom Calendar Logic
                 this.renderGrid = () => {
                     const activeDate = new Date(this.data.datetime);
                     const year = this.viewDate.getFullYear();
@@ -332,41 +336,35 @@
                     
                     monthLabel.innerText = this.viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
                     
-                    // Populate Time Inputs
                     let h = activeDate.getHours();
                     const ampm = h >= 12 ? 'PM' : 'AM';
-                    h = h % 12 || 12; // convert to 12hr
+                    h = h % 12 || 12; 
                     hourInput.value = h;
                     minInput.value = activeDate.getMinutes().toString().padStart(2, '0');
                     ampmInput.value = ampm;
 
                     grid.innerHTML = '';
-                    
                     const firstDay = new Date(year, month, 1).getDay();
                     const daysInMonth = new Date(year, month + 1, 0).getDate();
                     
-                    // Empty slots before 1st
                     for (let i = 0; i < firstDay; i++) {
                         const empty = document.createElement('div');
                         empty.className = 'cp-day muted';
                         grid.appendChild(empty);
                     }
                     
-                    // Days
                     for (let i = 1; i <= daysInMonth; i++) {
                         const dayEl = document.createElement('div');
                         dayEl.className = 'cp-day';
                         dayEl.innerText = i;
-                        
                         if (activeDate.getFullYear() === year && activeDate.getMonth() === month && activeDate.getDate() === i) {
                             dayEl.classList.add('active');
                         }
-                        
                         dayEl.onclick = () => {
                             const newDate = new Date(this.data.datetime);
                             newDate.setFullYear(year, month, i);
                             this.updateDateTime(newDate);
-                            this.renderGrid(); // Re-render to move active class
+                            this.renderGrid(); 
                         };
                         grid.appendChild(dayEl);
                     }
@@ -378,7 +376,6 @@
                     displayTxt.innerText = this.formatDisplayDate();
                 };
 
-                // Time updating logic
                 const handleTimeChange = () => {
                     const newDate = new Date(this.data.datetime);
                     let h = parseInt(hourInput.value) || 12;
@@ -387,7 +384,6 @@
                     
                     if (h === 12 && ampm === 'AM') h = 0;
                     if (h < 12 && ampm === 'PM') h += 12;
-                    
                     newDate.setHours(h, m);
                     this.updateDateTime(newDate);
                 };
@@ -396,29 +392,18 @@
                 minInput.onchange = handleTimeChange;
                 ampmInput.onchange = handleTimeChange;
 
-                // Month Nav
                 this.wrapper.querySelector('.cp-prev').onclick = () => { this.viewDate.setMonth(this.viewDate.getMonth() - 1); this.renderGrid(); };
                 this.wrapper.querySelector('.cp-next').onclick = () => { this.viewDate.setMonth(this.viewDate.getMonth() + 1); this.renderGrid(); };
 
-
-                // --- Feature 2: ICS Export Logic ---
                 this.wrapper.querySelector('.cal-export-btn').onclick = () => {
                     const start = new Date(this.data.datetime);
-                    const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour duration
-                    
-                    // iCal expects UTC format: YYYYMMDDTHHMMSSZ
+                    const end = new Date(start.getTime() + 60 * 60 * 1000); 
                     const formatICS = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                    
                     const icsContent = [
-                        'BEGIN:VCALENDAR',
-                        'VERSION:2.0',
-                        'PRODID:-//Infinite Notes//EN',
-                        'BEGIN:VEVENT',
-                        `DTSTART:${formatICS(start)}`,
-                        `DTEND:${formatICS(end)}`,
+                        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Infinite Notes//EN', 'BEGIN:VEVENT',
+                        `DTSTART:${formatICS(start)}`, `DTEND:${formatICS(end)}`,
                         `SUMMARY:${this.data.title || 'Note Event'}`,
-                        'END:VEVENT',
-                        'END:VCALENDAR'
+                        'END:VEVENT', 'END:VCALENDAR'
                     ].join('\n');
 
                     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
@@ -432,24 +417,18 @@
                     URL.revokeObjectURL(url);
                 };
 
-                // --- Notification Permission Logic ---
                 const notifyBtn = this.wrapper.querySelector('.cal-notify-btn');
                 notifyBtn.onclick = async () => {
                     if (!('Notification' in window)) return alert('Your browser does not support notifications.');
                     if (Notification.permission === 'granted') return alert('Notifications active! Keep app open to receive them.');
-                    
                     const permission = await Notification.requestPermission();
                     if (permission === 'granted') {
                         notifyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg> On';
                         notifyBtn.classList.add('granted');
-                    } else {
-                        alert('Notifications blocked in device settings.');
-                    }
+                    } else { alert('Notifications blocked in device settings.'); }
                 };
-
                 return this.wrapper;
             }
-
             save() { return this.data; }
         }
 
@@ -468,7 +447,6 @@
 
                 this.pickerWrapper = document.createElement('div');
                 this.pickerWrapper.className = 'emoji-picker-wrapper';
-                
                 const picker = document.createElement('emoji-picker');
                 picker.addEventListener('emoji-click', event => {
                     this.insertEmoji(event.detail.unicode);
@@ -511,7 +489,7 @@
                 this.api = api; 
                 this.baseImage = data.baseImage || 'blank'; 
                 this.data = data.image || null; 
-                this.currentColor = '#000000'; 
+                this.currentColor = 'theme-ink'; // Default logical color (Adaptive)
                 this.canvas = null;
                 this.ctx = null;
                 this.wrapper = document.createElement('div');
@@ -583,35 +561,59 @@
             }
 
             startDraw(e) { this.isDrawing = true; const {x, y} = this.getCoords(e); this.ctx.beginPath(); this.ctx.moveTo(x, y); }
-            draw(e) { if (!this.isDrawing) return; e.preventDefault(); const {x, y} = this.getCoords(e); this.ctx.lineTo(x, y); this.ctx.strokeStyle = this.currentColor; this.ctx.lineWidth = 4; this.ctx.stroke(); }
+            
+            draw(e) { 
+                if (!this.isDrawing) return; 
+                e.preventDefault(); 
+                const {x, y} = this.getCoords(e); 
+                this.ctx.lineTo(x, y); 
+                
+                // Theme Aware Color Injection
+                let strokeColor = this.currentColor;
+                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (strokeColor === 'theme-ink') strokeColor = isDark ? '#ffffff' : '#000000';
+                if (strokeColor === 'theme-paper') strokeColor = isDark ? '#121212' : '#ffffff';
+
+                this.ctx.strokeStyle = strokeColor; 
+                this.ctx.lineWidth = 4; 
+                this.ctx.stroke(); 
+            }
+            
             stopDraw() { if(this.isDrawing) { this.isDrawing = false; this.saveToData(); } }
 
             renderSettings() {
                 const wrapper = document.createElement('div');
                 
+                // Perfected Color Grid
                 const colorRow = document.createElement('div');
-                colorRow.className = 'canvas-settings-row';
-                const colors = ['#000000', '#EF4444', '#3B82F6', '#10B981', '#ffffff'];
+                colorRow.className = 'ce-popover-item';
+                colorRow.innerHTML = `<div class="canvas-color-grid"></div>`;
+                const grid = colorRow.querySelector('.canvas-color-grid');
+                
+                const colors = ['theme-ink', '#EF4444', '#3B82F6', '#10B981', 'theme-paper'];
                 colors.forEach(color => {
                     const btn = document.createElement('button');
                     btn.className = 'canvas-color-setting';
-                    btn.style.backgroundColor = color;
+                    
+                    if (color === 'theme-ink') btn.style.backgroundColor = 'var(--text-color)';
+                    else if (color === 'theme-paper') btn.style.backgroundColor = 'var(--bg-color)';
+                    else btn.style.backgroundColor = color;
+                    
                     if (this.currentColor === color) btn.classList.add('active');
                     btn.onclick = () => {
                         this.currentColor = color;
-                        colorRow.querySelectorAll('.canvas-color-setting').forEach(b => b.classList.remove('active'));
+                        grid.querySelectorAll('.canvas-color-setting').forEach(b => b.classList.remove('active'));
                         btn.classList.add('active');
                     };
-                    colorRow.appendChild(btn);
+                    grid.appendChild(btn);
                 });
                 wrapper.appendChild(colorRow);
 
+                // Cleaned up Actions
                 const uploadBtn = document.createElement('div');
                 uploadBtn.className = 'ce-popover-item';
-                uploadBtn.innerHTML = `
-                    <div class="ce-popover-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
-                    <div class="ce-popover-item__title">Set Background Image</div>
-                `;
+                uploadBtn.innerHTML = `<div class="ce-popover-item__icon">${ICONS.image}</div><div class="ce-popover-item__title">Set Background Image</div>`;
+                
                 const fileInput = document.createElement('input');
                 fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
                 fileInput.onchange = (e) => {
@@ -645,10 +647,7 @@
 
                 const clearBtn = document.createElement('div');
                 clearBtn.className = 'ce-popover-item';
-                clearBtn.innerHTML = `
-                    <div class="ce-popover-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
-                    <div class="ce-popover-item__title">Clear Drawing</div>
-                `;
+                clearBtn.innerHTML = `<div class="ce-popover-item__icon">${ICONS.trash}</div><div class="ce-popover-item__title">Clear Drawing</div>`;
                 clearBtn.onclick = () => {
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     if (this.baseImage && this.baseImage !== 'blank') {
@@ -678,49 +677,98 @@
             save() { return { image: this.data, baseImage: this.baseImage }; }
         }
 
-        // --- 4. Custom Block Tool: Voice Memo ---
+        // --- 4. Custom Block Tool: Voice Memo (Sleek unified UI) ---
         class VoiceMemo {
             static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
             constructor({data}) {
-                this.data = data.url || null; this.recorder = null; this.chunks = [];
+                this.data = data.url || null; 
+                this.recorder = null; 
+                this.chunks = [];
+                this.isPlaying = false;
+                this.isRecording = false;
                 this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div') };
             }
+
             render() {
                 this.nodes.wrapper.className = 'custom-block-wrapper v-memo'; 
                 this.nodes.button.className = 'v-memo__btn';
-                this.nodes.button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>';
                 this.nodes.status.className = 'v-memo__status';
-                this.nodes.status.innerText = this.data ? 'Recording saved' : 'Click to record audio';
-                this.nodes.audio.controls = true;
                 
-                if (this.data) this.nodes.audio.src = this.data; else this.nodes.audio.style.display = 'none';
-                this.nodes.button.onclick = () => this.toggleRecording();
+                // Hide audio completely, we drive it with JS
+                this.nodes.audio.style.display = 'none';
+                if (this.data) this.nodes.audio.src = this.data;
+                
+                this.nodes.audio.onplay = () => { this.isPlaying = true; this.updateUI(); };
+                this.nodes.audio.onpause = () => { this.isPlaying = false; this.updateUI(); };
+                this.nodes.audio.onended = () => { this.isPlaying = false; this.updateUI(); };
+
+                this.nodes.button.onclick = () => this.handleAction();
+                
                 this.nodes.wrapper.append(this.nodes.button, this.nodes.status, this.nodes.audio);
+                this.updateUI();
                 return this.nodes.wrapper;
             }
-            async toggleRecording() {
-                if (this.recorder && this.recorder.state === 'recording') {
-                    this.recorder.stop(); this.nodes.button.classList.remove('recording'); this.nodes.status.innerText = 'Processing...';
+
+            updateUI() {
+                this.nodes.button.className = 'v-memo__btn'; // reset classes
+                
+                if (this.isPlaying) {
+                    this.nodes.button.innerHTML = ICONS.pause;
+                    this.nodes.status.innerText = 'Playing...';
+                    this.nodes.button.classList.add('playing');
+                } else if (this.data) {
+                    this.nodes.button.innerHTML = ICONS.play;
+                    this.nodes.status.innerText = 'Voice Memo (Ready)';
+                } else if (this.isRecording) {
+                    this.nodes.button.innerHTML = ICONS.stop;
+                    this.nodes.status.innerText = 'Recording...';
+                    this.nodes.button.classList.add('recording');
                 } else {
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        this.recorder = new MediaRecorder(stream); this.chunks = [];
-                        this.recorder.ondataavailable = (e) => this.chunks.push(e.data);
-                        this.recorder.onstop = () => {
-                            const blob = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
-                            const reader = new FileReader();
-                            reader.onloadend = () => { this.data = reader.result; this.nodes.audio.src = this.data; this.nodes.audio.style.display = 'block'; this.nodes.status.innerText = 'Saved'; };
-                            reader.readAsDataURL(blob);
-                            stream.getTracks().forEach(track => track.stop());
-                        };
-                        this.recorder.start();
-                        this.nodes.button.classList.add('recording'); this.nodes.status.innerText = 'Recording...'; this.nodes.audio.style.display = 'none';
-                    } catch (err) { this.nodes.status.innerText = 'Mic access denied'; }
+                    this.nodes.button.innerHTML = ICONS.mic;
+                    this.nodes.status.innerText = 'Click to record';
                 }
             }
+
+            async handleAction() {
+                // If it has data, act as Play/Pause
+                if (this.data) {
+                    if (this.isPlaying) this.nodes.audio.pause();
+                    else this.nodes.audio.play();
+                } 
+                // Otherwise act as Record/Stop
+                else {
+                    if (this.isRecording) {
+                        this.recorder.stop();
+                        this.isRecording = false;
+                        this.nodes.status.innerText = 'Processing...';
+                    } else {
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            this.recorder = new MediaRecorder(stream); this.chunks = [];
+                            this.recorder.ondataavailable = (e) => this.chunks.push(e.data);
+                            this.recorder.onstop = () => {
+                                const blob = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
+                                const reader = new FileReader();
+                                reader.onloadend = () => { 
+                                    this.data = reader.result; 
+                                    this.nodes.audio.src = this.data; 
+                                    this.updateUI(); 
+                                };
+                                reader.readAsDataURL(blob);
+                                stream.getTracks().forEach(track => track.stop());
+                            };
+                            this.recorder.start();
+                            this.isRecording = true;
+                            this.updateUI();
+                        } catch (err) { this.nodes.status.innerText = 'Mic access denied'; }
+                    }
+                }
+            }
+
             destroy() {
                 if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
                 if (this.recorder && this.recorder.stream) this.recorder.stream.getTracks().forEach(track => track.stop());
+                this.nodes.audio.pause();
             }
             save() { return { url: this.data }; }
         }
@@ -728,8 +776,9 @@
         // --- Editor Initialization ---
         const defaultData = {
             blocks: [
-                { type: "header", data: { text: "Native integrations added", level: 1 } },
-                { type: "paragraph", data: { text: "Try creating a calendar event! It now features a completely custom, minimal date picker. Click the new <strong>Add to Calendar</strong> button to export it instantly to Apple/Google calendars." } }
+                { type: "header", data: { text: "Premium Polish Finished", level: 1 } },
+                { type: "paragraph", data: { text: "Look at the options menu on the canvas below. The color picker circles and icons now seamlessly match the rest of the application!" } },
+                { type: "paragraph", data: { text: "Also try drawing in black and toggling your device's Dark Mode. The ink intelligently shifts to white. Finally, test the new, super-minimal Voice Memo tool." } }
             ]
         };
 
