@@ -16,7 +16,7 @@
     <link id="pwa-manifest" rel="manifest" href="">
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMDAwMCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4bC02LTZ6Ii8+PC9zdmc+">
 
-    <!-- Editor.js Core & Official Core Plugins ONLY (Deferred for Faster Load) -->
+    <!-- Editor.js Core & Official Core Plugins ONLY -->
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@latest"></script>
@@ -34,7 +34,6 @@
     <style>
         /* --- Standardized Pure Flat Theme Variables --- */
         :root {
-            /* Colors */
             --bg-color: #ffffff;
             --text-color: #000000;
             --border-color: #e0e0e0;
@@ -45,12 +44,10 @@
             --editor-hover-bg: #ebebeb;
             --overlay-bg: transparent; 
             
-            /* Typography & Layout */
             --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             --keyboard-offset: 0px; 
             --safe-area-top: env(safe-area-inset-top, 0px);
 
-            /* Standardization Variables for Custom Blocks */
             --std-border-radius: 8px;
             --std-padding: 12px 14px;
             --std-margin: 8px 0;
@@ -58,7 +55,6 @@
             --std-control-height: 34px;
         }
 
-        /* True Flat Dark Mode */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #121212;
@@ -72,42 +68,21 @@
             }
         }
 
-        body { 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            font-family: var(--font-main); 
-            margin: 0; 
-            padding: 0; 
-            line-height: 1.6; 
-            width: 100vw;
-            overflow-x: hidden; 
-        }
-
-        #editorjs { 
-            max-width: 750px; 
-            width: 100%;
-            margin: 0 auto; 
-            padding: calc(10vh + var(--safe-area-top)) 20px 65vh 20px; 
-            box-sizing: border-box; 
-        }
-        
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); margin: 0; padding: 0; line-height: 1.6; width: 100vw; overflow-x: hidden; }
+        #editorjs { max-width: 750px; width: 100%; margin: 0 auto; padding: calc(10vh + var(--safe-area-top)) 20px 65vh 20px; box-sizing: border-box; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         ::-webkit-scrollbar:horizontal { display: none; }
-
-        .ce-block__content, .ce-toolbar__content { 
-            max-width: 100% !important; 
-        }
-
+        .ce-block__content, .ce-toolbar__content { max-width: 100% !important; }
         svg { flex-shrink: 0; }
 
-        /* Main Buttons */
         .ce-toolbar__plus, .ce-toolbar__settings-btn { background-color: var(--bg-color) !important; color: var(--text-color) !important; border: 1px solid transparent; }
         .ce-toolbar__plus:hover, .ce-toolbar__settings-btn:hover { background-color: var(--editor-hover-bg) !important; border-color: var(--border-color); }
-
-        /* Remove Overlays */
         .ce-popover__overlay, .ce-popover-overlay, .cdx-overlay { background: var(--overlay-bg) !important; background-color: var(--overlay-bg) !important; box-shadow: none !important; backdrop-filter: none !important; }
 
-        /* Deep Overrides for Dark Mode */
+        .ce-popover-item__icon svg { width: var(--std-icon-size) !important; height: var(--std-icon-size) !important; }
+        .ce-popover-item__title { font-size: 14px !important; font-weight: 500 !important; }
+        .ce-popover-item { padding: 6px 10px !important; }
+
         @media (prefers-color-scheme: dark) {
             .ce-popover, .ce-popover__container, .ce-popover__panel, .ce-popover__items, .ce-inline-toolbar, .ce-conversion-toolbar, .ce-settings, .ce-tooltip, .tc-popover { background: var(--editor-toolbar-bg) !important; background-color: var(--editor-toolbar-bg) !important; border-color: var(--border-color) !important; box-shadow: none !important; }
             .ce-popover-item, .ce-inline-tool, .ce-conversion-tool, .ce-settings__button { background-color: transparent !important; color: var(--text-color) !important; }
@@ -123,10 +98,8 @@
             emoji-picker { --background: var(--editor-toolbar-bg); --border-color: var(--border-color); --input-border-color: var(--border-color); --category-icon-color: var(--muted-text); }
         }
 
-        /* --- Table Fix --- */
         .tc-wrap { overflow-x: auto; width: 100%; max-width: 100%; box-sizing: border-box; }
 
-        /* --- Mobile Keyboard Fix CSS --- */
         @media (max-width: 650px) {
             .ce-popover, .ce-settings, .ce-inline-toolbar {
                 bottom: var(--keyboard-offset, 0px) !important;
@@ -136,15 +109,39 @@
         }
 
         /* --- STANDARDIZED Custom Tools Framework --- */
-        .custom-block-wrapper {
-            margin: var(--std-margin);
-            border-radius: var(--std-border-radius);
-            border: 1px solid var(--border-color);
-            background: var(--bg-color);
-            box-sizing: border-box;
-            width: 100%;
-            overflow: hidden;
-        }
+        .custom-block-wrapper { margin: var(--std-margin); border-radius: var(--std-border-radius); border: 1px solid var(--border-color); background: var(--bg-color); box-sizing: border-box; width: 100%; overflow: hidden; }
+
+        /* Calendar Tool */
+        .cal-wrapper { padding: var(--std-padding); display: flex; flex-direction: column; gap: 12px; }
+        .cal-header { display: flex; align-items: center; gap: 10px; }
+        .cal-header svg { color: var(--text-color); }
+        .cal-title { flex-grow: 1; border: none; background: transparent; color: var(--text-color); font-size: 16px; font-weight: 500; outline: none; font-family: inherit; }
+        
+        .cal-display-btn { border: 1px solid var(--border-color); background: var(--muted-bg); color: var(--text-color); border-radius: 6px; padding: 8px 12px; font-family: inherit; font-size: 14px; outline: none; cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between; }
+        .cal-display-btn:hover { background: var(--editor-hover-bg); }
+        
+        .cal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cal-btn { flex: 1; padding: 8px 12px; background: transparent; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+        .cal-btn:hover { background: var(--editor-hover-bg); }
+        .cal-btn.primary { background: var(--text-color); color: var(--bg-color); border-color: var(--text-color); }
+        .cal-btn.primary:hover { opacity: 0.9; }
+        .cal-btn.granted { background: #10B981; color: white; border-color: #10B981; }
+
+        /* Custom Date Picker UI */
+        .cp-container { border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; background: var(--bg-color); margin-top: 4px; display: none; }
+        .cp-container.open { display: block; animation: fadeIn 0.2s ease; }
+        .cp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: bold; }
+        .cp-header button { background: var(--muted-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .cp-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--muted-text); margin-bottom: 4px; font-weight: 600; }
+        .cp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .cp-day { padding: 6px 0; text-align: center; font-size: 13px; cursor: pointer; border-radius: 4px; color: var(--text-color); }
+        .cp-day:hover { background: var(--editor-hover-bg); }
+        .cp-day.active { background: var(--text-color); color: var(--bg-color); font-weight: bold; }
+        .cp-day.muted { color: var(--border-color); pointer-events: none; }
+        
+        .cp-time { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+        .cp-time input, .cp-time select { background: var(--muted-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; padding: 4px 8px; font-family: inherit; font-size: 14px; outline: none; }
+        .cp-time input[type="number"] { width: 40px; text-align: center; }
 
         /* Voice Memo */
         .v-memo { padding: var(--std-padding); display: flex; align-items: center; gap: 12px; }
@@ -153,41 +150,19 @@
         .v-memo__btn.recording { color: #ffffff; border-color: #ef4444; background: #ef4444; animation: pulse 1.5s infinite; }
         .v-memo__status { font-size: 14px; color: var(--muted-text); flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         audio { height: var(--std-control-height); max-width: 150px; outline: none; flex-shrink: 1; border-radius: var(--std-border-radius); }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
+        
         /* Canvas Tool */
         .canvas-wrapper { width: 100%; display: flex; justify-content: center; background: var(--bg-color); }
         canvas { touch-action: none; background: transparent; cursor: crosshair; display: block; max-width: 100%; height: auto !important; }
-        
-        /* Standardized Popover Settings Styles for Canvas */
-        .canvas-settings-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 4px;
-        }
-        .canvas-color-setting { 
-            width: 24px; 
-            height: 24px; 
-            border-radius: 50%; 
-            border: 1px solid var(--border-color); 
-            cursor: pointer; 
-            padding: 0; 
-            background-color: transparent; 
-            transition: transform 0.1s; 
-            flex-shrink: 0; 
-        }
-        .canvas-color-setting.active { 
-            transform: scale(1.2); 
-            outline: 2px solid var(--text-color); 
-            outline-offset: 1px; 
-            border-color: transparent; 
-        }
+        .canvas-settings-row { display: flex; justify-content: space-around; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 2px; }
+        .canvas-color-setting { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); cursor: pointer; padding: 0; background-color: transparent; transition: transform 0.1s; flex-shrink: 0; }
+        .canvas-color-setting.active { transform: scale(1.2); outline: 2px solid var(--text-color); outline-offset: 1px; border-color: transparent; }
 
         .emoji-picker-wrapper { position: absolute; top: 40px; left: -100px; z-index: 10000; border: 1px solid var(--border-color); border-radius: var(--std-border-radius); display: none; background: var(--editor-toolbar-bg); max-width: 90vw; }
         emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; width: 100%; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -220,13 +195,10 @@
                 const offset = window.innerHeight - window.visualViewport.height;
                 const safeOffset = Math.max(0, offset);
                 document.documentElement.style.setProperty('--keyboard-offset', `${safeOffset}px`);
-
                 if (safeOffset > 100) {
                     setTimeout(() => {
                         const activeBlock = document.querySelector('.ce-block--focused');
-                        if (activeBlock) {
-                            activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
+                        if (activeBlock) activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }, 150);
                 }
             };
@@ -235,7 +207,253 @@
             updateKeyboardOffset();
         }
 
-        // --- 1. Custom Inline Tool: Emoji Picker ---
+        // --- Global Notification Engine ---
+        setInterval(() => {
+            if (Notification.permission !== 'granted') return;
+            const dataStr = localStorage.getItem(STORAGE_KEY);
+            if (!dataStr) return;
+            try {
+                const doc = JSON.parse(dataStr);
+                let modified = false;
+                
+                doc.blocks.forEach(block => {
+                    if (block.type === 'calendar' && block.data.datetime && !block.data.notified) {
+                        const eventTime = new Date(block.data.datetime).getTime();
+                        const now = new Date().getTime();
+                        
+                        if (eventTime <= now) {
+                            new Notification('Note Reminder', {
+                                body: block.data.title || 'Scheduled Event Reached',
+                                icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMDAwMCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4bC02LTZ6Ii8+PC9zdmc+'
+                            });
+                            block.data.notified = true;
+                            modified = true;
+                        }
+                    }
+                });
+
+                if (modified) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+                }
+            } catch (e) { }
+        }, 5000); 
+
+        // --- 1. Custom Block Tool: Calendar & Custom Date Picker ---
+        class CalendarTool {
+            static get toolbox() { return { title: 'Calendar Event', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' }; }
+            
+            constructor({data}) {
+                // Feature 1: Default to Exact Current Date & Time if new
+                this.data = {
+                    title: data.title || '',
+                    datetime: data.datetime || new Date().toISOString(),
+                    notified: data.notified || false
+                };
+                this.wrapper = document.createElement('div');
+                this.viewDate = new Date(this.data.datetime); 
+            }
+
+            // Beautifully formats the date for the display button
+            formatDisplayDate() {
+                const d = new Date(this.data.datetime);
+                const datePart = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                const timePart = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+                return `${datePart} at ${timePart}`;
+            }
+
+            render() {
+                this.wrapper.className = 'custom-block-wrapper cal-wrapper';
+                const isGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+
+                this.wrapper.innerHTML = `
+                    <div class="cal-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        <input type="text" class="cal-title" placeholder="Event Name / Reminder..." value="${this.data.title}">
+                    </div>
+                    
+                    <button class="cal-display-btn">
+                        <span class="cal-display-text">${this.formatDisplayDate()}</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    
+                    <!-- Custom Flat Picker UI -->
+                    <div class="cp-container">
+                        <div class="cp-header">
+                            <button class="cp-prev">&lt;</button>
+                            <span class="cp-month-label">Month Year</span>
+                            <button class="cp-next">&gt;</button>
+                        </div>
+                        <div class="cp-weekdays">
+                            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                        </div>
+                        <div class="cp-grid"></div>
+                        <div class="cp-time">
+                            <input type="number" class="cp-hour" min="1" max="12"> : 
+                            <input type="number" class="cp-minute" min="0" max="59">
+                            <select class="cp-ampm"><option value="AM">AM</option><option value="PM">PM</option></select>
+                        </div>
+                    </div>
+
+                    <div class="cal-actions">
+                        <button class="cal-btn cal-export-btn primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Add to Calendar
+                        </button>
+                        <button class="cal-btn cal-notify-btn ${isGranted ? 'granted' : ''}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                            ${isGranted ? 'On' : 'Notify'}
+                        </button>
+                    </div>
+                `;
+
+                // --- DOM References ---
+                const titleInput = this.wrapper.querySelector('.cal-title');
+                const displayBtn = this.wrapper.querySelector('.cal-display-btn');
+                const displayTxt = this.wrapper.querySelector('.cal-display-text');
+                const picker = this.wrapper.querySelector('.cp-container');
+                const grid = this.wrapper.querySelector('.cp-grid');
+                const monthLabel = this.wrapper.querySelector('.cp-month-label');
+                
+                // Time inputs
+                const hourInput = this.wrapper.querySelector('.cp-hour');
+                const minInput = this.wrapper.querySelector('.cp-minute');
+                const ampmInput = this.wrapper.querySelector('.cp-ampm');
+
+                // --- Event Listeners ---
+                titleInput.oninput = (e) => { this.data.title = e.target.value; };
+                
+                displayBtn.onclick = () => { picker.classList.toggle('open'); this.renderGrid(); };
+
+                // Custom Calendar Logic
+                this.renderGrid = () => {
+                    const activeDate = new Date(this.data.datetime);
+                    const year = this.viewDate.getFullYear();
+                    const month = this.viewDate.getMonth();
+                    
+                    monthLabel.innerText = this.viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                    
+                    // Populate Time Inputs
+                    let h = activeDate.getHours();
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    h = h % 12 || 12; // convert to 12hr
+                    hourInput.value = h;
+                    minInput.value = activeDate.getMinutes().toString().padStart(2, '0');
+                    ampmInput.value = ampm;
+
+                    grid.innerHTML = '';
+                    
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    
+                    // Empty slots before 1st
+                    for (let i = 0; i < firstDay; i++) {
+                        const empty = document.createElement('div');
+                        empty.className = 'cp-day muted';
+                        grid.appendChild(empty);
+                    }
+                    
+                    // Days
+                    for (let i = 1; i <= daysInMonth; i++) {
+                        const dayEl = document.createElement('div');
+                        dayEl.className = 'cp-day';
+                        dayEl.innerText = i;
+                        
+                        if (activeDate.getFullYear() === year && activeDate.getMonth() === month && activeDate.getDate() === i) {
+                            dayEl.classList.add('active');
+                        }
+                        
+                        dayEl.onclick = () => {
+                            const newDate = new Date(this.data.datetime);
+                            newDate.setFullYear(year, month, i);
+                            this.updateDateTime(newDate);
+                            this.renderGrid(); // Re-render to move active class
+                        };
+                        grid.appendChild(dayEl);
+                    }
+                };
+
+                this.updateDateTime = (newDateObj) => {
+                    this.data.datetime = newDateObj.toISOString();
+                    this.data.notified = false;
+                    displayTxt.innerText = this.formatDisplayDate();
+                };
+
+                // Time updating logic
+                const handleTimeChange = () => {
+                    const newDate = new Date(this.data.datetime);
+                    let h = parseInt(hourInput.value) || 12;
+                    const m = parseInt(minInput.value) || 0;
+                    const ampm = ampmInput.value;
+                    
+                    if (h === 12 && ampm === 'AM') h = 0;
+                    if (h < 12 && ampm === 'PM') h += 12;
+                    
+                    newDate.setHours(h, m);
+                    this.updateDateTime(newDate);
+                };
+
+                hourInput.onchange = handleTimeChange;
+                minInput.onchange = handleTimeChange;
+                ampmInput.onchange = handleTimeChange;
+
+                // Month Nav
+                this.wrapper.querySelector('.cp-prev').onclick = () => { this.viewDate.setMonth(this.viewDate.getMonth() - 1); this.renderGrid(); };
+                this.wrapper.querySelector('.cp-next').onclick = () => { this.viewDate.setMonth(this.viewDate.getMonth() + 1); this.renderGrid(); };
+
+
+                // --- Feature 2: ICS Export Logic ---
+                this.wrapper.querySelector('.cal-export-btn').onclick = () => {
+                    const start = new Date(this.data.datetime);
+                    const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour duration
+                    
+                    // iCal expects UTC format: YYYYMMDDTHHMMSSZ
+                    const formatICS = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                    
+                    const icsContent = [
+                        'BEGIN:VCALENDAR',
+                        'VERSION:2.0',
+                        'PRODID:-//Infinite Notes//EN',
+                        'BEGIN:VEVENT',
+                        `DTSTART:${formatICS(start)}`,
+                        `DTEND:${formatICS(end)}`,
+                        `SUMMARY:${this.data.title || 'Note Event'}`,
+                        'END:VEVENT',
+                        'END:VCALENDAR'
+                    ].join('\n');
+
+                    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${this.data.title ? this.data.title.replace(/\s+/g, '_') : 'event'}.ics`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+
+                // --- Notification Permission Logic ---
+                const notifyBtn = this.wrapper.querySelector('.cal-notify-btn');
+                notifyBtn.onclick = async () => {
+                    if (!('Notification' in window)) return alert('Your browser does not support notifications.');
+                    if (Notification.permission === 'granted') return alert('Notifications active! Keep app open to receive them.');
+                    
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        notifyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg> On';
+                        notifyBtn.classList.add('granted');
+                    } else {
+                        alert('Notifications blocked in device settings.');
+                    }
+                };
+
+                return this.wrapper;
+            }
+
+            save() { return this.data; }
+        }
+
+        // --- 2. Custom Inline Tool: Emoji Picker ---
         class EmojiInlineTool {
             static get isInline() { return true; }
             get shortcut() { return 'CMD+E'; }
@@ -285,9 +503,9 @@
             checkState() { return false; }
         }
 
-        // --- 2. Minimal Custom Block Tool: Drawing & Photo Annotator ---
+        // --- 3. Minimal Custom Block Tool: Drawing & Photo Annotator ---
         class CanvasTool {
-            static get toolbox() { return { title: 'Drawing/Photo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>' }; }
+            static get toolbox() { return { title: 'Drawing/Photo', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>' }; }
 
             constructor({data, api}) {
                 this.api = api; 
@@ -298,7 +516,6 @@
                 this.ctx = null;
                 this.wrapper = document.createElement('div');
                 this.wrapper.className = 'custom-block-wrapper';
-                // Bound handlers for easy removal in destroy()
                 this.startDraw = this.startDraw.bind(this);
                 this.draw = this.draw.bind(this);
                 this.stopDraw = this.stopDraw.bind(this);
@@ -307,7 +524,6 @@
 
             render() {
                 this.wrapper.innerHTML = '';
-                
                 const canvasWrapper = document.createElement('div');
                 canvasWrapper.className = 'canvas-wrapper';
                 
@@ -317,15 +533,10 @@
                 this.canvas.style.display = 'block'; 
                 
                 this.ctx = this.canvas.getContext('2d');
-                
-                const initContext = () => {
-                    this.ctx.lineCap = 'round';
-                    this.ctx.lineJoin = 'round';
-                };
+                const initContext = () => { this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round'; };
 
                 const loadAndDraw = () => {
                     const dynamicMaxWidth = this.wrapper.clientWidth > 0 ? this.wrapper.clientWidth : (window.innerWidth - 40);
-
                     if (this.baseImage && this.baseImage !== 'blank') {
                         const imgSrcToLoad = this.data || this.baseImage;
                         const img = new Image();
@@ -343,28 +554,23 @@
                         initContext();
                         if (this.data) {
                             const img = new Image();
-                            img.onload = () => {
-                                this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-                            }
+                            img.onload = () => this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
                             img.src = this.data;
                         }
                     }
                 };
-                
                 setTimeout(loadAndDraw, 10);
 
                 this.canvas.addEventListener('mousedown', this.startDraw); 
                 this.canvas.addEventListener('mousemove', this.draw);
                 this.canvas.addEventListener('mouseup', this.stopDraw); 
                 this.canvas.addEventListener('mouseleave', this.stopDraw);
-                
                 this.canvas.addEventListener('touchstart', this.startDraw, {passive: false}); 
                 this.canvas.addEventListener('touchmove', this.draw, {passive: false}); 
                 this.canvas.addEventListener('touchend', this.stopDraw);
 
                 canvasWrapper.appendChild(this.canvas);
                 this.wrapper.appendChild(canvasWrapper);
-                
                 return this.wrapper;
             }
 
@@ -385,14 +591,12 @@
                 
                 const colorRow = document.createElement('div');
                 colorRow.className = 'canvas-settings-row';
-                
                 const colors = ['#000000', '#EF4444', '#3B82F6', '#10B981', '#ffffff'];
                 colors.forEach(color => {
                     const btn = document.createElement('button');
                     btn.className = 'canvas-color-setting';
                     btn.style.backgroundColor = color;
                     if (this.currentColor === color) btn.classList.add('active');
-                    
                     btn.onclick = () => {
                         this.currentColor = color;
                         colorRow.querySelectorAll('.canvas-color-setting').forEach(b => b.classList.remove('active'));
@@ -405,14 +609,11 @@
                 const uploadBtn = document.createElement('div');
                 uploadBtn.className = 'ce-popover-item';
                 uploadBtn.innerHTML = `
-                    <div class="ce-popover-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+                    <div class="ce-popover-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
                     <div class="ce-popover-item__title">Set Background Image</div>
                 `;
                 const fileInput = document.createElement('input');
-                fileInput.type = 'file'; 
-                fileInput.accept = 'image/*'; 
-                fileInput.style.display = 'none';
-                
+                fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
                 fileInput.onchange = (e) => {
                     const file = e.target.files[0];
                     if (file) {
@@ -422,23 +623,16 @@
                             img.onload = () => {
                                 const dynamicMaxWidth = this.wrapper.clientWidth > 0 ? this.wrapper.clientWidth : (window.innerWidth - 40);
                                 const scale = Math.min(1, dynamicMaxWidth / img.width);
-                                
                                 const offCanvas = document.createElement('canvas');
-                                offCanvas.width = img.width * scale;
-                                offCanvas.height = img.height * scale;
+                                offCanvas.width = img.width * scale; offCanvas.height = img.height * scale;
                                 const offCtx = offCanvas.getContext('2d');
                                 offCtx.drawImage(img, 0, 0, offCanvas.width, offCanvas.height);
-                                
                                 this.baseImage = offCanvas.toDataURL('image/jpeg', 0.85);
                                 this.data = this.baseImage; 
-                                
-                                this.canvas.width = offCanvas.width;
-                                this.canvas.height = offCanvas.height;
-                                this.ctx.lineCap = 'round';
-                                this.ctx.lineJoin = 'round';
+                                this.canvas.width = offCanvas.width; this.canvas.height = offCanvas.height;
+                                this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round';
                                 this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
                                 this.saveToData();
-                                
                                 this.api.toolbar.close(); 
                             };
                             img.src = re.target.result;
@@ -447,28 +641,21 @@
                     }
                 };
                 uploadBtn.onclick = () => fileInput.click();
-                
-                wrapper.appendChild(uploadBtn);
-                wrapper.appendChild(fileInput);
+                wrapper.appendChild(uploadBtn); wrapper.appendChild(fileInput);
 
                 const clearBtn = document.createElement('div');
                 clearBtn.className = 'ce-popover-item';
                 clearBtn.innerHTML = `
-                    <div class="ce-popover-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+                    <div class="ce-popover-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
                     <div class="ce-popover-item__title">Clear Drawing</div>
                 `;
                 clearBtn.onclick = () => {
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     if (this.baseImage && this.baseImage !== 'blank') {
                         const img = new Image();
-                        img.onload = () => {
-                            this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-                            this.saveToData();
-                        };
+                        img.onload = () => { this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height); this.saveToData(); };
                         img.src = this.baseImage;
-                    } else {
-                        this.saveToData();
-                    }
+                    } else { this.saveToData(); }
                     this.api.toolbar.close();
                 };
                 wrapper.appendChild(clearBtn);
@@ -476,7 +663,6 @@
                 return wrapper;
             }
 
-            // Memory Leak Cleanup: Remove listeners if block is deleted
             destroy() {
                 if (this.canvas) {
                     this.canvas.removeEventListener('mousedown', this.startDraw); 
@@ -488,14 +674,13 @@
                     this.canvas.removeEventListener('touchend', this.stopDraw);
                 }
             }
-
             saveToData() { this.data = this.canvas.toDataURL('image/png'); }
             save() { return { image: this.data, baseImage: this.baseImage }; }
         }
 
-        // --- 3. Custom Block Tool: Voice Memo ---
+        // --- 4. Custom Block Tool: Voice Memo ---
         class VoiceMemo {
-            static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
+            static get toolbox() { return { title: 'Voice Memo', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>' }; }
             constructor({data}) {
                 this.data = data.url || null; this.recorder = null; this.chunks = [];
                 this.nodes = { wrapper: document.createElement('div'), button: document.createElement('button'), audio: document.createElement('audio'), status: document.createElement('div') };
@@ -526,7 +711,6 @@
                             const reader = new FileReader();
                             reader.onloadend = () => { this.data = reader.result; this.nodes.audio.src = this.data; this.nodes.audio.style.display = 'block'; this.nodes.status.innerText = 'Saved'; };
                             reader.readAsDataURL(blob);
-                            // Cleanup media tracks safely
                             stream.getTracks().forEach(track => track.stop());
                         };
                         this.recorder.start();
@@ -534,25 +718,18 @@
                     } catch (err) { this.nodes.status.innerText = 'Mic access denied'; }
                 }
             }
-
-            // Memory Leak Cleanup: Stop mic if block is deleted while recording
             destroy() {
-                if (this.recorder && this.recorder.state !== 'inactive') {
-                    this.recorder.stop();
-                }
-                if (this.recorder && this.recorder.stream) {
-                    this.recorder.stream.getTracks().forEach(track => track.stop());
-                }
+                if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+                if (this.recorder && this.recorder.stream) this.recorder.stream.getTracks().forEach(track => track.stop());
             }
-
             save() { return { url: this.data }; }
         }
 
         // --- Editor Initialization ---
         const defaultData = {
             blocks: [
-                { type: "header", data: { text: "Optimized Core", level: 1 } },
-                { type: "paragraph", data: { text: "The autosave feature has been debounced to stop keyboard lag, and the custom tools now have memory leak protection if you delete them!" } }
+                { type: "header", data: { text: "Native integrations added", level: 1 } },
+                { type: "paragraph", data: { text: "Try creating a calendar event! It now features a completely custom, minimal date picker. Click the new <strong>Add to Calendar</strong> button to export it instantly to Apple/Google calendars." } }
             ]
         };
 
@@ -569,13 +746,14 @@
                 delimiter: Delimiter,
                 alert: Alert,
                 toggle: ToggleBlock,
+                calendar: CalendarTool,
                 canvas: CanvasTool,
                 voice: VoiceMemo,
                 emoji: EmojiInlineTool
             };
         }
 
-        let saveTimeout; // Debounce timer
+        let saveTimeout; 
 
         const editor = new EditorJS({
             holder: 'editorjs',
@@ -589,7 +767,6 @@
                     }
                 });
             },
-            // The Debouncer: Only saves 500ms AFTER you finish typing, dramatically reducing disk strain
             onChange: () => {
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(async () => {
