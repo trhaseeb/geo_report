@@ -671,9 +671,9 @@ Never refuse a tool execution if it fits the user's intent. Do not ask for permi
                 
                 // Provide a specific error code to the user to help debug
                 let shortError = "sys.ai.offline";
-                if (err.message.includes("WebGPU")) shortError = "gpu.access.denied";
-                else if (err.message.includes("fetch")) shortError = "model.download.err";
-                else if (err.message.includes("memory") || err.message.includes("quota")) shortError = "out.of.memory";
+                if (err.message && err.message.includes("WebGPU")) shortError = "gpu.access.denied";
+                else if (err.message && err.message.includes("fetch")) shortError = "model.download.err";
+                else if (err.message && (err.message.includes("memory") || err.message.includes("quota"))) shortError = "out.of.memory";
                 
                 aiStatusEl.textContent = shortError; 
                 aiEngine = null;
