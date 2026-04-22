@@ -127,6 +127,8 @@
         /* AI RESPONSE BLOCKS */
         .stream-block[class*="-ai"] .text-content { font-weight: 400; color: var(--neon-purple); }
         .stream-block[class*="-ai"]::before { content: ''; position: absolute; left: -16px; top: 10px; bottom: 10px; width: 3px; background: var(--neon-purple); opacity: 0.5; }
+        .ai-cursor { display: inline-block; width: 8px; height: 18px; background-color: var(--neon-purple); vertical-align: middle; animation: blink 1s step-end infinite; margin-left: 4px; }
+        @keyframes blink { 50% { opacity: 0; } }
 
         /* --- MENUS & UNIFIED INLINE TOOLBAR --- */
         .floating-menu { position: absolute; background: var(--bg-color); border: 2px solid var(--text-color); box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.15); z-index: 1000; display: none; flex-direction: column; width: 260px; border-radius: 4px; overflow: hidden; padding: 8px 0; transition: opacity 0.1s; }
@@ -229,7 +231,7 @@
         <div class="header-max-width">
             <div id="date-header">today</div>
             <div class="status-row">
-                <span id="ai-inline-status" class="neon-status ai-status standby" onclick="AIConfig.openModal()">sys.ai.standby [tap to boot]</span>
+                <span id="ai-inline-status" class="neon-status ai-status standby" onclick="SystemConfig.openModal()">sys.ai.standby [tap to config]</span>
                 <span id="db-status" class="neon-status db-status">db.init</span>
             </div>
         </div>
@@ -239,19 +241,27 @@
         <div id="lean-editor"></div>
     </div>
 
-    <!-- AI Engine Config Modal -->
+    <!-- System & AI Config Modal -->
     <div id="ai-config-modal" class="modal-overlay">
         <div class="modal-panel">
-            <div style="font-size: 20px; font-weight: 900; font-style: italic; text-transform: uppercase; margin-bottom: 20px;">AI Engine Config</div>
+            <div style="font-size: 20px; font-weight: 900; font-style: italic; text-transform: uppercase; margin-bottom: 20px;">System & AI</div>
             <div style="font-size: 13px; color: var(--muted-text); margin-bottom: 16px; line-height: 1.5;">
-                Select a local intelligence model to run in your browser's memory. Larger models are smarter but may crash standard iPhones.
+                Local intelligence models run in your browser's memory. Larger models are smarter but require more device RAM.
             </div>
             
             <div id="ai-model-list"></div>
             
+            <div style="display: flex; gap: 12px; margin-top: 12px;">
+                <button id="ai-unload-btn" class="raw-btn danger" style="flex: 1;" onclick="SystemConfig.unload()">SHUTDOWN AI</button>
+            </div>
+            
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--baritone-bg);">
+                <div style="font-family: var(--font-mono); font-size: 10px; color: var(--muted-text); text-transform: uppercase; margin-bottom: 12px; font-weight: 700;">Data Management</div>
+                <button class="raw-btn" style="width: 100%; justify-content: flex-start;" onclick="SystemConfig.exportVault()">EXPORT VAULT (BACKUP)</button>
+            </div>
+            
             <div style="display: flex; gap: 12px; margin-top: 24px;">
-                <button id="ai-unload-btn" class="raw-btn danger" style="flex: 1;" onclick="AIConfig.unload()">SHUTDOWN AI</button>
-                <button class="raw-btn" style="flex: 1;" onclick="document.getElementById('ai-config-modal').classList.remove('active')">CLOSE</button>
+                <button class="raw-btn active" style="flex: 1;" onclick="document.getElementById('ai-config-modal').classList.remove('active')">CLOSE</button>
             </div>
         </div>
     </div>
@@ -377,6 +387,7 @@
         // ============================================================================
         const VectorEmbedder = new (class {
             constructor() { this.embedder = null; this.promise = null; }
+            
             async getEmbedder() {
                 if (this.embedder) return this.embedder;
                 if (!this.promise) {
@@ -390,8 +401,18 @@
                 }
                 return this.promise;
             }
-            async embedText(text) {
-                if (window.isAIGenerating) return null; 
+
+            // CRITICAL MOBILE OPTIMIZATION: Eject transformers from RAM when LLM needs space
+            async unload() {
+                if (this.embedder && typeof this.embedder.dispose === 'function') {
+                    try { await this.embedder.dispose(); } catch(e){}
+                }
+                this.embedder = null;
+                this.promise = null;
+            }
+
+            async embedText(text, bypassLock = false) {
+                if (window.isAIGenerating && !bypassLock) return null; 
                 const normalizedText = normalizePlainText(text).slice(0, 1200);
                 if (!normalizedText) return null;
                 try {
@@ -427,7 +448,6 @@
                         CREATE TABLE IF NOT EXISTS semantic_index (key TEXT PRIMARY KEY, date_str TEXT, block_id TEXT, block_type TEXT, search_text TEXT, embedding vector(384), timestamp BIGINT);
                     `);
 
-                    // Try to add parent_slug column if upgrading from an older DB version
                     await this.pg.exec(`
                         CREATE TABLE IF NOT EXISTS personas_list (slug TEXT PRIMARY KEY, display_name TEXT NOT NULL, created_at BIGINT, parent_slug TEXT);
                         ALTER TABLE personas_list ADD COLUMN IF NOT EXISTS parent_slug TEXT;
@@ -468,6 +488,23 @@
                             ]
                         };
                         await this.saveNote('persona::strategist', strategistData);
+                    }
+
+                    // SEED THE SECRETARY PERSONA
+                    const hasSecretary = await this.pg.query(`SELECT 1 FROM personas_list WHERE slug = 'secretary'`);
+                    if (hasSecretary.rows.length === 0) {
+                        await this.pg.query(`INSERT INTO personas_list (slug, display_name, created_at) VALUES ('secretary', 'secretary', $1)`, [Date.now()]);
+                        const secretaryData = {
+                            blocks: [
+                                { id: crypto.randomUUID(), type: 'h1', data: { text: "Daily Synthesis & Organization" }, author: 'system', timestamp: Date.now() },
+                                { id: crypto.randomUUID(), type: 'text', data: { text: "I am the Secretary persona. My job is to analyze the user's daily notes, extract action items, and provide clear summaries." }, author: 'secretary', timestamp: Date.now() },
+                                { id: crypto.randomUUID(), type: 'h2', data: { text: "System Instructions" }, author: 'secretary', timestamp: Date.now() },
+                                { id: crypto.randomUUID(), type: 'ul', data: { text: "1. When asked to summarize or review the day, I will read the provided context carefully." }, author: 'secretary', timestamp: Date.now() },
+                                { id: crypto.randomUUID(), type: 'ul', data: { text: "2. I will extract all implied or explicit tasks and present them as a clean checklist using '[] ' syntax." }, author: 'secretary', timestamp: Date.now() },
+                                { id: crypto.randomUUID(), type: 'ul', data: { text: "3. I will provide a short, encouraging summary of the day's thoughts." }, author: 'secretary', timestamp: Date.now() }
+                            ]
+                        };
+                        await this.saveNote('persona::secretary', secretaryData);
                     }
                     
                     statusEl.textContent = 'db.ready';
@@ -543,7 +580,7 @@
                                 : normalizePlainText(JSON.stringify(block.data));
                                 
                             if (!textToEmbed) continue;
-                            const vec = await VectorEmbedder.embedText(textToEmbed);
+                            const vec = await VectorEmbedder.embedText(textToEmbed, false);
                             if (!vec) continue;
                             
                             await this.pg.query(
@@ -555,9 +592,9 @@
                 }, 5000);
             }
 
-            async searchSemantic(queryText, excludeDate, limit = 5) {
-                if (!this.isReady || window.isAIGenerating) return []; 
-                const vec = await VectorEmbedder.embedText(queryText);
+            async searchSemantic(queryText, excludeDate, limit = 5, bypassLock = false) {
+                if (!this.isReady || (window.isAIGenerating && !bypassLock)) return []; 
+                const vec = await VectorEmbedder.embedText(queryText, bypassLock);
                 if (!vec) return [];
                 
                 const result = await this.pg.query(
@@ -592,7 +629,7 @@
             { id: "Llama-3.2-3B-Instruct-q4f16_1-MLC", name: "Llama 3.2 (3B)", size: "~2.0GB", risk: "high", desc: "Pro/Max devices only. Will instantly crash older or standard memory devices." }
         ];
 
-        window.AIConfig = {
+        window.SystemConfig = {
             currentId: localStorage.getItem('infinotes_ai_model') || null, 
             
             openModal: () => {
@@ -600,8 +637,8 @@
                 list.innerHTML = '';
                 AI_MODELS.forEach(m => {
                     const card = el('div', { 
-                        className: `ai-model-card ${m.id === AIConfig.currentId && aiEngine ? 'active' : ''}`,
-                        onclick: () => AIConfig.load(m.id)
+                        className: `ai-model-card ${m.id === SystemConfig.currentId && aiEngine ? 'active' : ''}`,
+                        onclick: () => SystemConfig.load(m.id)
                     });
                     
                     const titleRow = el('div', { className: 'ai-model-title' });
@@ -624,22 +661,22 @@
                     try { await aiEngine.unload(); } catch(e){}
                     aiEngine = null;
                 }
-                AIConfig.currentId = null;
+                SystemConfig.currentId = null;
                 localStorage.removeItem('infinotes_ai_model');
                 aiStatusEl.className = 'neon-status ai-status standby';
-                aiStatusEl.textContent = 'sys.ai.standby [tap to boot]';
+                aiStatusEl.textContent = 'sys.ai.standby [tap to config]';
                 isAILoading = false;
                 document.getElementById('ai-config-modal').classList.remove('active');
             },
             load: async (modelId) => {
                 if (isAILoading) return;
                 
-                AIConfig.currentId = modelId;
+                SystemConfig.currentId = modelId;
                 localStorage.setItem('infinotes_ai_model', modelId);
                 document.getElementById('ai-config-modal').classList.remove('active');
                 
-                await AIConfig.unload(); 
-                AIConfig.currentId = modelId; 
+                await SystemConfig.unload(); 
+                SystemConfig.currentId = modelId; 
                 
                 isAILoading = true;
                 aiStatusEl.className = 'neon-status ai-status loading';
@@ -649,10 +686,13 @@
                     if (!navigator.gpu) throw new Error("No WebGPU");
                     const { CreateMLCEngine } = await import("https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/+esm");
                     
+                    // CRITICAL MOBILE MEMORY FIX: Force KV Cache size strictly down to 1024 to prevent instant iPhone memory crashes
                     aiEngine = await CreateMLCEngine(modelId, {
                         initProgressCallback: p => {
                             aiStatusEl.textContent = `sys.ai.loading [${Math.round(p.progress * 100)}%]`;
-                        }
+                        },
+                        context_window_size: 1024,
+                        sliding_window_size: 1024
                     });
                     
                     aiStatusEl.className = 'neon-status ai-status';
@@ -664,11 +704,20 @@
                 } finally {
                     isAILoading = false;
                 }
+            },
+            exportVault: () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(pgDB.cache, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `infinotes_vault_${getLocalYYYYMMDD(new Date())}.json`);
+                document.body.appendChild(downloadAnchorNode); 
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
             }
         };
         
-        if (window.AIConfig.currentId) {
-            setTimeout(() => window.AIConfig.load(window.AIConfig.currentId), 1500);
+        if (window.SystemConfig.currentId) {
+            setTimeout(() => window.SystemConfig.load(window.SystemConfig.currentId), 1500);
         }
 
         // ============================================================================
@@ -1510,7 +1559,7 @@
                         const hasBacklinks = pgDB.findBacklinks(persona.slug).length > 0;
                         const hasContent = personaData?.blocks?.length > 0 && !(personaData.blocks.length === 1 && !personaData.blocks[0].data.text);
                         
-                        if (hasBacklinks || hasContent || persona.slug === 'me' || persona.slug === 'manual' || persona.slug === 'strategist') {
+                        if (hasBacklinks || hasContent || ['me','manual','strategist','secretary'].includes(persona.slug)) {
                             activePersonas.push(persona);
                         } else {
                             await pgDB.pg.query(`DELETE FROM personas_list WHERE slug = $1`, [persona.slug]);
@@ -1677,7 +1726,6 @@
                 }
             }
 
-            // AGENT LINEAGE & MARKDOWN TABLE PARSER
             _parseAIMarkdownToBlocks(markdownStr, author, insertAfterId) {
                 const lines = markdownStr.split('\n');
                 let currentId = insertAfterId;
@@ -1688,13 +1736,10 @@
 
                 const processText = (rawText) => {
                     let escaped = escapeHTML(rawText.trim());
-                    // Find @Mentions spawned by this AI
                     escaped = escaped.replace(/@([a-zA-Z0-9_-]+)(\.collab)?/gi, (match, p1, p2) => {
                         const slug = p1.toLowerCase();
-                        // Register the lineage (who spawned who)
                         const parentSlug = author !== 'user' ? author : null;
                         pgDB.createPersona(slug, p1.toUpperCase(), parentSlug);
-                        
                         if (p2) chainedMentions.push({ slug, name: p1.toUpperCase() });
                         return `<span class="persona-mention" data-slug="${slug}" contenteditable="false">@${p1.toUpperCase()}</span>`;
                     });
@@ -1727,11 +1772,10 @@
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
                     
-                    // Table Interceptor
                     if (line.trim().startsWith('|')) {
                         flushText();
                         inTable = true;
-                        if (!line.replace(/[\s|-]/g, '').length) continue; // Skip |---|---| separator
+                        if (!line.replace(/[\s|-]/g, '').length) continue; 
                         const row = line.split('|').slice(1, -1).map(c => processText(c.trim()));
                         if (row.length > 0) tableData.push(row);
                         continue;
@@ -1763,9 +1807,9 @@
                 return { lastId: currentId, chainedMentions };
             }
 
-            // AGENT BATON PASSING (Chain of Thought)
+            // CRITICAL FIX: Throttled Streaming and WebGPU Memory Caps
             async triggerAIPersonas(triggerBlock, triggerContent, aiMentions, depth = 0) {
-                if (depth > 2) return; // Safeguard against infinite AI loops
+                if (depth > 2) return; 
                 let lastInsertId = triggerBlock.id;
                 
                 if (!aiEngine || isAILoading) {
@@ -1774,44 +1818,77 @@
                     return scheduleSave();
                 }
                 
-                window.isAIGenerating = true; 
                 const userPrompt = normalizePlainText(triggerContent.textContent) || "Please continue the collaboration.";
-                const meContext = (pgDB.cache['persona::me']?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 1000);
+                const meContext = (pgDB.cache['persona::me']?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 800);
+                
+                let topicalContext = '';
+                if (pgDB.isReady && userPrompt.length > 5 && depth === 0) {
+                    const searchResults = await pgDB.searchSemantic(userPrompt, '', 2, true); 
+                    if (searchResults.length > 0) {
+                        topicalContext = searchResults.map(r => r.searchText).join('\n---\n').substring(0, 800);
+                    }
+                }
                 
                 let nextMentions = [];
 
                 try {
+                    window.isAIGenerating = true; 
+                    
+                    // CRITICAL FIX: Unload Transformers.js before generating to free up iOS RAM
+                    await VectorEmbedder.unload();
+                    await new Promise(r => setTimeout(r, 200)); // Wait for garbage collection
+
                     for (const mention of aiMentions) {
                         const { slug, name } = mention;
                         const aiInstructions = (pgDB.cache[`persona::${slug}`]?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 1000);
                         
+                        let currentDayContext = "";
+                        if (slug === 'secretary') {
+                            currentDayContext = `\n[Today's Unorganized Notes]:\n` + (pgDB.cache[window.currentDateStr]?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 1500);
+                        }
+                        
+                        const ragString = topicalContext ? `\n[Relevant Past Notes Found in Database]:\n${topicalContext}` : '';
+
                         const thinkingBlock = this.addBasicBlock('text', `<span class="neon-status ai-status loading">${name} is thinking...</span>`, slug, crypto.randomUUID(), Date.now(), lastInsertId);
+                        const contentNode = thinkingBlock.dom.querySelector('.text-content');
                         
                         try {
-                            const response = await aiEngine.chat.completions.create({
+                            const chunks = await aiEngine.chat.completions.create({
                                 messages: [
-                                    { role: 'system', content: `You are embodying the persona "${name}".\n[User Info]:\n${meContext || 'None'}\n\n[Your Instructions]:\n${aiInstructions || `Act as a helpful expert.`}\n\nCRITICAL RULES:\n1. Respond using Markdown headers (#), lists (-), quotes (>), and tables (|Col1|Col2|).\n2. You may invite another persona by outputting @Name.collab` },
+                                    { role: 'system', content: `You are embodying the persona "${name}".\n[User Info]:\n${meContext || 'None'}${ragString}${currentDayContext}\n\n[Your Instructions]:\n${aiInstructions || `Act as a helpful expert.`}\n\nCRITICAL RULES:\n1. Respond using Markdown headers (#), lists (-), quotes (>), and tables (|Col1|Col2|).\n2. You may invite another persona by outputting @Name.collab` },
                                     { role: 'user', content: userPrompt }
                                 ], 
                                 temperature: 0.7, 
-                                max_tokens: 400 
+                                max_tokens: 400,
+                                stream: true
                             });
                             
-                            const aiText = response.choices[0].message.content || "";
+                            let aiText = "";
+                            let lastRenderTime = 0;
+                            
+                            // CRITICAL FIX: Throttled Streaming Loop to prevent iOS DOM Thrashing crashes
+                            for await (const chunk of chunks) {
+                                aiText += chunk.choices[0]?.delta?.content || "";
+                                
+                                const now = Date.now();
+                                if (now - lastRenderTime > 100) { // Render max 10 times a second
+                                    contentNode.innerHTML = escapeHTML(aiText).replace(/\n/g, '<br>') + '<span class="ai-cursor"></span>';
+                                    const rect = thinkingBlock.dom.getBoundingClientRect();
+                                    if (rect.bottom > window.innerHeight) window.scrollBy(0, rect.bottom - window.innerHeight + 20);
+                                    lastRenderTime = now;
+                                }
+                            }
                             
                             this.deleteBlock(thinkingBlock.id);
                             
                             const parseResult = this._parseAIMarkdownToBlocks(aiText, slug, lastInsertId);
                             lastInsertId = parseResult.lastId;
                             
-                            if (parseResult.chainedMentions.length > 0) {
-                                nextMentions.push(...parseResult.chainedMentions);
-                            }
-
+                            if (parseResult.chainedMentions.length > 0) nextMentions.push(...parseResult.chainedMentions);
                             await this.appendToPersonaPage(slug, userPrompt, aiText);
                             
                         } catch (err) {
-                            thinkingBlock.dom.querySelector('.text-content').innerHTML = '<span style="color:#ef4444">connection failed (memory limit exceeded).</span>'; 
+                            contentNode.innerHTML = '<span style="color:#ef4444">connection failed (memory limit exceeded).</span>'; 
                             lastInsertId = thinkingBlock.id;
                         }
                         await new Promise(r => setTimeout(r, 100)); 
