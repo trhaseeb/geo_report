@@ -402,7 +402,6 @@
                 return this.promise;
             }
 
-            // CRITICAL MOBILE OPTIMIZATION: Eject transformers from RAM when LLM needs space
             async unload() {
                 if (this.embedder && typeof this.embedder.dispose === 'function') {
                     try { await this.embedder.dispose(); } catch(e){}
@@ -455,7 +454,6 @@
                     
                     await this.pg.query(`INSERT INTO personas_list (slug, display_name, created_at) VALUES ('me', 'me', $1) ON CONFLICT DO NOTHING`, [Date.now()]);
                     
-                    // SEED MANUAL PERSONA
                     const hasManual = await this.pg.query(`SELECT 1 FROM personas_list WHERE slug = 'manual'`);
                     if (hasManual.rows.length === 0) {
                         await this.pg.query(`INSERT INTO personas_list (slug, display_name, created_at) VALUES ('manual', 'manual', $1)`, [Date.now()]);
@@ -473,7 +471,6 @@
                         await this.saveNote('persona::manual', manualData);
                     }
 
-                    // SEED THE STRATEGIST PERSONA
                     const hasStrategist = await this.pg.query(`SELECT 1 FROM personas_list WHERE slug = 'strategist'`);
                     if (hasStrategist.rows.length === 0) {
                         await this.pg.query(`INSERT INTO personas_list (slug, display_name, created_at) VALUES ('strategist', 'strategist', $1)`, [Date.now()]);
@@ -490,7 +487,6 @@
                         await this.saveNote('persona::strategist', strategistData);
                     }
 
-                    // SEED THE SECRETARY PERSONA
                     const hasSecretary = await this.pg.query(`SELECT 1 FROM personas_list WHERE slug = 'secretary'`);
                     if (hasSecretary.rows.length === 0) {
                         await this.pg.query(`INSERT INTO personas_list (slug, display_name, created_at) VALUES ('secretary', 'secretary', $1)`, [Date.now()]);
@@ -686,13 +682,13 @@
                     if (!navigator.gpu) throw new Error("No WebGPU");
                     const { CreateMLCEngine } = await import("https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/+esm");
                     
-                    // CRITICAL MOBILE MEMORY FIX: Force KV Cache size strictly down to 1024 to prevent instant iPhone memory crashes
+                    // Increased context window slightly but added strict prompt trimming below to prevent OOM
                     aiEngine = await CreateMLCEngine(modelId, {
                         initProgressCallback: p => {
                             aiStatusEl.textContent = `sys.ai.loading [${Math.round(p.progress * 100)}%]`;
                         },
-                        context_window_size: 1024,
-                        sliding_window_size: 1024
+                        context_window_size: 2048,
+                        sliding_window_size: 2048
                     });
                     
                     aiStatusEl.className = 'neon-status ai-status';
@@ -1807,7 +1803,7 @@
                 return { lastId: currentId, chainedMentions };
             }
 
-            // CRITICAL FIX: Throttled Streaming and WebGPU Memory Caps
+            // CRITICAL FIX: Explicitly clear KV Cache ("Take off the hat") and strictly cap prompts.
             async triggerAIPersonas(triggerBlock, triggerContent, aiMentions, depth = 0) {
                 if (depth > 2) return; 
                 let lastInsertId = triggerBlock.id;
@@ -1818,14 +1814,15 @@
                     return scheduleSave();
                 }
                 
-                const userPrompt = normalizePlainText(triggerContent.textContent) || "Please continue the collaboration.";
-                const meContext = (pgDB.cache['persona::me']?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 800);
+                // RUTHLESS TRIMMING: Ensure the prompt doesn't violate WebLLM context bounds.
+                const userPrompt = normalizePlainText(triggerContent.textContent).substring(0, 300) || "Continue the collaboration.";
+                const meContext = (pgDB.cache['persona::me']?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 200);
                 
                 let topicalContext = '';
                 if (pgDB.isReady && userPrompt.length > 5 && depth === 0) {
                     const searchResults = await pgDB.searchSemantic(userPrompt, '', 2, true); 
                     if (searchResults.length > 0) {
-                        topicalContext = searchResults.map(r => r.searchText).join('\n---\n').substring(0, 800);
+                        topicalContext = searchResults.map(r => r.searchText).join('\n---\n').substring(0, 300);
                     }
                 }
                 
@@ -1834,20 +1831,18 @@
                 try {
                     window.isAIGenerating = true; 
                     
-                    // CRITICAL FIX: Unload Transformers.js before generating to free up iOS RAM
                     await VectorEmbedder.unload();
-                    await new Promise(r => setTimeout(r, 200)); // Wait for garbage collection
+                    await new Promise(r => setTimeout(r, 200)); 
 
                     for (const mention of aiMentions) {
                         const { slug, name } = mention;
-                        const aiInstructions = (pgDB.cache[`persona::${slug}`]?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 1000);
                         
-                        let currentDayContext = "";
-                        if (slug === 'secretary') {
-                            currentDayContext = `\n[Today's Unorganized Notes]:\n` + (pgDB.cache[window.currentDateStr]?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 1500);
-                        }
+                        // "TAKE OFF THE HAT": Explicitly clear the KV Cache from the previous persona
+                        try { if (typeof aiEngine.resetChat === 'function') await aiEngine.resetChat(); } catch(e) {}
                         
-                        const ragString = topicalContext ? `\n[Relevant Past Notes Found in Database]:\n${topicalContext}` : '';
+                        const aiInstructions = (pgDB.cache[`persona::${slug}`]?.blocks?.map(b => normalizePlainText(b.data?.text)).join('\n') || '').substring(0, 300);
+                        
+                        const ragString = topicalContext ? `\n[Past Notes]:\n${topicalContext}` : '';
 
                         const thinkingBlock = this.addBasicBlock('text', `<span class="neon-status ai-status loading">${name} is thinking...</span>`, slug, crypto.randomUUID(), Date.now(), lastInsertId);
                         const contentNode = thinkingBlock.dom.querySelector('.text-content');
@@ -1855,23 +1850,22 @@
                         try {
                             const chunks = await aiEngine.chat.completions.create({
                                 messages: [
-                                    { role: 'system', content: `You are embodying the persona "${name}".\n[User Info]:\n${meContext || 'None'}${ragString}${currentDayContext}\n\n[Your Instructions]:\n${aiInstructions || `Act as a helpful expert.`}\n\nCRITICAL RULES:\n1. Respond using Markdown headers (#), lists (-), quotes (>), and tables (|Col1|Col2|).\n2. You may invite another persona by outputting @Name.collab` },
+                                    { role: 'system', content: `Persona: "${name}".\n[User Info]: ${meContext || 'None'}${ragString}\n[Instructions]: ${aiInstructions || 'Be helpful.'}\nRULES: Use Markdown (#, -, >, |table|). Output @Name.collab to invite others.` },
                                     { role: 'user', content: userPrompt }
                                 ], 
                                 temperature: 0.7, 
-                                max_tokens: 400,
+                                max_tokens: 250, // Capped to guarantee it stops before hitting the VRAM wall
                                 stream: true
                             });
                             
                             let aiText = "";
                             let lastRenderTime = 0;
                             
-                            // CRITICAL FIX: Throttled Streaming Loop to prevent iOS DOM Thrashing crashes
                             for await (const chunk of chunks) {
                                 aiText += chunk.choices[0]?.delta?.content || "";
                                 
                                 const now = Date.now();
-                                if (now - lastRenderTime > 100) { // Render max 10 times a second
+                                if (now - lastRenderTime > 100) { 
                                     contentNode.innerHTML = escapeHTML(aiText).replace(/\n/g, '<br>') + '<span class="ai-cursor"></span>';
                                     const rect = thinkingBlock.dom.getBoundingClientRect();
                                     if (rect.bottom > window.innerHeight) window.scrollBy(0, rect.bottom - window.innerHeight + 20);
@@ -1888,7 +1882,7 @@
                             await this.appendToPersonaPage(slug, userPrompt, aiText);
                             
                         } catch (err) {
-                            contentNode.innerHTML = '<span style="color:#ef4444">connection failed (memory limit exceeded).</span>'; 
+                            contentNode.innerHTML = '<span style="color:#ef4444">connection failed (out of bounds).</span>'; 
                             lastInsertId = thinkingBlock.id;
                         }
                         await new Promise(r => setTimeout(r, 100)); 
@@ -1904,7 +1898,7 @@
                     
                     setTimeout(() => {
                         const handoffBlock = this.blocks.find(b => b.id === lastInsertId) || triggerBlock;
-                        this.triggerAIPersonas(handoffBlock, el('div', { textContent: "It is your turn. Respond based on the recent context." }), uniqueMentions, depth + 1);
+                        this.triggerAIPersonas(handoffBlock, el('div', { textContent: "It is your turn." }), uniqueMentions, depth + 1);
                     }, 500);
                 }
             }
