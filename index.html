@@ -210,7 +210,7 @@
     <div class="sub-header">
         <a href="#" id="mode-toggle" class="mode-link">Mode: Live</a>
         <span style="opacity: 0.4;">|</span>
-        <a href="#models" id="ai-header-status" class="mode-link" title="Click to open AI Settings">AI: LOADING...</a>
+        <a href="#models" id="ai-header-status" class="mode-link" title="Click to open AI Settings">AI: OFFLINE</a>
     </div>
 
     <main>
@@ -270,6 +270,12 @@
 
         // Initialize header
         window.updateHeaderUI('OFFLINE');
+
+        // Fix: Make the AI header status link actually navigate to the Models page
+        aiHeaderStatus.addEventListener('click', (e) => {
+            e.preventDefault();
+            loadModels();
+        });
 
         // Autocomplete State
         let currentGhostSuggestion = null;
