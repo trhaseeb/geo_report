@@ -78,6 +78,7 @@
             user-select: none;
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 1rem;
         }
 
@@ -91,6 +92,7 @@
             cursor: pointer;
             transition: all 0.1s;
             opacity: 0.6;
+            white-space: nowrap;
         }
 
         .mode-link:hover {
@@ -98,25 +100,6 @@
             text-decoration: underline;
             text-decoration-thickness: 3px;
             text-underline-offset: 4px;
-        }
-
-        .brutal-select {
-            appearance: none;
-            background: transparent;
-            border: 2px solid var(--fg);
-            color: var(--fg);
-            font-family: inherit;
-            font-weight: 900;
-            text-transform: uppercase;
-            padding: 0.2em 0.6em;
-            font-size: clamp(0.7rem, 1vw, 0.9rem);
-            cursor: pointer;
-            outline: none;
-        }
-        
-        .brutal-select option {
-            background: var(--bg);
-            color: var(--fg);
         }
 
         main {
@@ -196,6 +179,22 @@
         .prose th, .prose td { border: 2px solid var(--fg); padding: 0.75em; text-align: left; }
         .prose th { background-color: var(--fg); color: var(--bg); text-transform: uppercase; font-weight: 900; }
 
+        /* AI Indicator Style */
+        .ai-status {
+            font-family: inherit;
+            color: #888;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .ai-status-pulse {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
         #live-editor:empty:before { content: attr(placeholder); color: #888; pointer-events: none; }
         .prose p:empty:before, .prose h1:empty:before, .prose h2:empty:before, 
         .prose h3:empty:before, .prose h4:empty:before, .prose h5:empty:before, 
@@ -211,11 +210,7 @@
     <div class="sub-header">
         <a href="#" id="mode-toggle" class="mode-link">Mode: Live</a>
         <span style="opacity: 0.4;">|</span>
-        <select id="ai-model-select" class="brutal-select">
-            <option value="Xenova/Qwen1.5-0.5B-Chat">AI: Fast (0.5B)</option>
-            <option value="Xenova/TinyLlama-1.1B-Chat-v1.0">AI: Balanced (1.1B)</option>
-            <option value="Xenova/Qwen1.5-1.8B-Chat">AI: Smart (1.8B)</option>
-        </select>
+        <a href="#models" id="ai-header-status" class="mode-link" title="Click to open AI Settings">AI: LOADING...</a>
     </div>
 
     <main>
@@ -230,14 +225,53 @@
         const readPreview = document.getElementById('read-preview');
         const modeToggle = document.getElementById('mode-toggle');
         const dateTitle = document.getElementById('date-title');
+        const aiHeaderStatus = document.getElementById('ai-header-status');
         
         const modes = ['Live', 'Raw', 'Read'];
         let currentModeIndex = 0; 
         let notes = {};
         let currentKey = '';
         let saveTimeout;
-        const VIRTUAL_PAGES = ['index', 'diary', 'tags'];
+        
+        const VIRTUAL_PAGES = ['index', 'diary', 'tags', 'models'];
 
+        // --- AI Model State ---
+        const AI_MODELS = {
+            'fast': { id: 'Xenova/Qwen1.5-0.5B-Chat', name: 'Fast', params: '0.5 Billion', size: '~300MB', desc: 'Very fast. Best for older phones or quick lookups.' },
+            'balanced': { id: 'Xenova/TinyLlama-1.1B-Chat-v1.0', name: 'Balanced', params: '1.1 Billion', size: '~600MB', desc: 'A great middle ground of speed and intelligence.' },
+            'smart': { id: 'Xenova/Qwen1.5-1.8B-Chat', name: 'Smart', params: '1.8 Billion', size: '~1.1GB', desc: 'Highest logic capabilities. Requires a powerful device.' }
+        };
+        let activeModelKey = localStorage.getItem('brutalNotes_activeModel') || 'fast';
+        
+        // Globals for AI script to read/write
+        window.isAIActive = false;
+        window.currentLoadedModelId = null; 
+
+        window.getActiveModelId = function() {
+            return AI_MODELS[activeModelKey].id;
+        };
+
+        window.updateHeaderUI = function(status, progress = 0) {
+            const mName = AI_MODELS[activeModelKey].name.toUpperCase();
+            if (status === 'OFFLINE') {
+                aiHeaderStatus.innerText = `AI: ${mName} [ OFFLINE ]`;
+                aiHeaderStatus.style.opacity = '0.6';
+            } else if (status === 'DOWNLOADING') {
+                aiHeaderStatus.innerText = `AI: ${mName} [ DL: ${Math.round(progress)}% ]`;
+                aiHeaderStatus.style.opacity = '1';
+            } else if (status === 'LOADING') {
+                aiHeaderStatus.innerText = `AI: ${mName} [ LOADING TO RAM ]`;
+                aiHeaderStatus.style.opacity = '1';
+            } else if (status === 'ACTIVE') {
+                aiHeaderStatus.innerText = `AI: ${mName} [ ACTIVE ]`;
+                aiHeaderStatus.style.opacity = '1';
+            }
+        };
+
+        // Initialize header
+        window.updateHeaderUI('OFFLINE');
+
+        // Autocomplete State
         let currentGhostSuggestion = null;
         let ghostNode = null;
 
@@ -264,7 +298,7 @@
             }]
         });
 
-        // Setup Turndown (Bare Minimum)
+        // Setup Turndown
         const turndownService = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-', codeBlockStyle: 'fenced' });
         
         turndownService.addRule('hashtag', {
@@ -317,18 +351,10 @@
             }
         }
 
-        // Expose functions for the AI Module
-        window.brutalNotesData = notes;
-        window.flushLiveSave = flushLiveSave;
-        window.DOMPurify = DOMPurify;
-        window.marked = marked;
-        
-        // Grab recent diary entries so the AI knows what's going on
         window.getRecentContext = function() {
             const dayKeys = Object.keys(notes).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse();
             let context = "";
             for(let i=0; i<Math.min(3, dayKeys.length); i++) {
-                // Limit to 500 chars per day to save memory for the local model
                 context += `Date: ${dayKeys[i]}\n${notes[dayKeys[i]].substring(0, 500)}\n\n`; 
             }
             return context;
@@ -402,9 +428,11 @@
             }
         }
 
+        // --- Virtual Pages ---
+
         function loadIndex() {
             flushLiveSave(); currentKey = 'index';
-            notes['index'] = `*Root Directory*\n\n- [Diary](#diary)\n- [Tags](#tags)`;
+            notes['index'] = `*Root Directory*\n\n- [Diary](#diary)\n- [Tags](#tags)\n- [Models](#models)`;
             dateTitle.innerText = 'Index'; dateTitle.classList.add('is-root');
             currentModeIndex = 2; updateModeUI();
         }
@@ -427,6 +455,35 @@
             const tagLinks = Array.from(tags).sort().map(t => `- [#${t}](#tag-${t})`).join('\n') || "*No hashtags used yet.*";
             notes['tags'] = `*All tags used across notes.*\n\n${tagLinks}`;
             dateTitle.innerText = 'Tags'; dateTitle.classList.remove('is-root');
+            currentModeIndex = 2; updateModeUI();
+        }
+
+        function loadModels() {
+            flushLiveSave(); currentKey = 'models';
+            let content = `*Manage your Local Device AI Engines.*\n\nNote: Models are downloaded directly into your browser cache. They remain OFFLINE until triggered via a tag in your notes.\n\n---\n\n`;
+            
+            for (let key in AI_MODELS) {
+                const m = AI_MODELS[key];
+                const isSelected = (key === activeModelKey);
+                // Check if this specific model is the one currently loaded in memory
+                const isActive = (window.isAIActive && window.currentLoadedModelId === m.id);
+                
+                content += `## ${m.name} Engine\n`;
+                content += `- **Parameters:** ${m.params}\n`;
+                content += `- **Download Size:** ${m.size}\n`;
+                content += `- **Details:** ${m.desc}\n`;
+                
+                if (isActive) {
+                    content += `- **Status:** **[ ACTIVE & LOADED IN RAM ]**\n\n---\n\n`;
+                } else if (isSelected) {
+                    content += `- **Status:** **[ SELECTED ]** (Offline until triggered)\n\n---\n\n`;
+                } else {
+                    content += `- **Status:** [Click here to Select](#setmodel-${key})\n\n---\n\n`;
+                }
+            }
+            
+            notes['models'] = content;
+            dateTitle.innerText = 'Models'; dateTitle.classList.remove('is-root');
             currentModeIndex = 2; updateModeUI();
         }
 
@@ -463,21 +520,34 @@
             if (e.key === 'Enter') {
                 const sel = window.getSelection();
                 if (sel.rangeCount > 0 && sel.focusNode.nodeType === Node.TEXT_NODE) {
-                    const text = sel.focusNode.textContent.substring(0, sel.focusOffset);
+                    const node = sel.focusNode;
+                    const text = node.textContent.substring(0, sel.focusOffset);
                     const aiMatch = text.match(/(?:^|\s)#([a-zA-Z0-9_.]+)\/\s*(.+)$/);
                     
                     if (aiMatch) {
                         e.preventDefault();
+                        const fullMatchText = aiMatch[0];
                         const aiTag = aiMatch[1].toLowerCase();
                         const aiPrompt = aiMatch[2];
 
-                        // Create the AI Loading Block and move cursor down
+                        // Delete the trigger text
+                        const range = document.createRange();
+                        range.setStart(node, sel.focusOffset - fullMatchText.length);
+                        range.setEnd(node, sel.focusOffset);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        document.execCommand('delete', false, null);
+
+                        // Insert visual loading block
                         const aiBlockId = 'ai-' + Date.now();
-                        document.execCommand('insertHTML', false, `<br><br><blockquote id="${aiBlockId}">🤖 Initializing Local AI Engine...</blockquote><p>&#8203;</p>`);
+                        const blockHTML = `<blockquote><div id="${aiBlockId}" class="ai-status">[ 🤖 INITIALIZING AI ENGINE... ]</div></blockquote><p><br></p>`;
+                        document.execCommand('insertHTML', false, blockHTML);
                         
-                        // Fire off the AI in the background
+                        // Fire off the Local AI
                         if (window.runLocalAI) {
                             window.runLocalAI(aiTag, aiPrompt, aiBlockId);
+                        } else {
+                            document.getElementById(aiBlockId).innerHTML = `[ ❌ AI ENGINE SCRIPT FAILED TO LOAD ]`;
                         }
                         return;
                     }
@@ -588,6 +658,23 @@
                     e.preventDefault();
                     if (href === '#diary') loadDiary();
                     else if (href === '#tags') loadTags();
+                    else if (href === '#models') loadModels();
+                    // Intercept the Model Selection Link
+                    else if (href.startsWith('#setmodel-')) {
+                        const modelKey = href.substring(10);
+                        if (AI_MODELS[modelKey]) {
+                            activeModelKey = modelKey;
+                            localStorage.setItem('brutalNotes_activeModel', activeModelKey);
+                            
+                            // If they switch selected models, turn off the "Active" status of the old one in UI
+                            if (window.currentLoadedModelId !== AI_MODELS[modelKey].id) {
+                                window.isAIActive = false;
+                            }
+                            
+                            window.updateHeaderUI(window.isAIActive ? 'ACTIVE' : 'OFFLINE');
+                            loadModels(); // Re-render the UI instantly to show selection changes
+                        }
+                    }
                     else loadNote(href.substring(1));
                 }
             }
@@ -598,7 +685,7 @@
 
         dateTitle.addEventListener('click', () => {
             if (currentKey === 'index') return;
-            else if (currentKey === 'diary' || currentKey === 'tags') loadIndex();
+            else if (currentKey === 'diary' || currentKey === 'tags' || currentKey === 'models') loadIndex();
             else if (currentKey.startsWith('tag-')) loadTags();
             else loadDiary();
         });
@@ -614,107 +701,125 @@
             const todayKey = getTodayKey();
             
             if (isFirstVisit) {
-                notes[todayKey] = `Welcome to your brutalist notebook.\n\nUse **Live Mode** for fast writing. \n\n**NEW: LOCAL DEVICE AI**\nThis app runs AI entirely in your browser using WebAssembly. No backend, complete privacy.\n\nTo configure it:\n1. Click on [#me](#tag-me) and write a few sentences about who you are.\n2. Click on [#assistant](#tag-assistant) and define a personality for it.\n\nTo trigger it, just type the tag, add a forward slash \`/\` and your prompt, then hit **Enter**. Try typing this below:\n\n#assistant/ What are you?`;
+                notes[todayKey] = `Welcome to your brutalist notebook.\n\n**LOCAL DEVICE AI**\nThis app runs AI entirely in your browser using WebAssembly. No external servers. Complete privacy.\n\nTo configure it:\n1. Click on [#models](#models) to select your engine size.\n2. Click on [#me](#tag-me) and write a few sentences about who you are.\n3. Click on [#assistant](#tag-assistant) and define a personality for it.\n\nTo trigger it, type the tag, add a forward slash \`/\` and your prompt, then hit **Enter**. Try it below:\n\n#assistant/ What are you?`;
                 saveNotesData();
             }
             loadNote(todayKey);
         });
     </script>
 
-    <!-- THE LOCAL AI ENGINE (Transformers.js) -->
+    <!-- THE LOCAL ON-DEVICE AI ENGINE (Transformers.js) -->
     <script type="module">
         import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.16.0';
         
-        // Prevent it from looking for local node.js files
+        // Ensure it doesn't look for local node.js system files
         env.allowLocalModels = false;
 
         let generator = null;
-        let currentLoadedModel = null;
 
         window.runLocalAI = async function(aiTag, userPrompt, blockId) {
             const block = document.getElementById(blockId);
             if (!block) return;
 
-            const select = document.getElementById('ai-model-select');
-            const targetModel = select.value;
+            // Grab the currently selected model 
+            const targetModel = window.getActiveModelId();
 
-            // Load the model if it's the first time or the user changed the dropdown
-            if (generator === null || currentLoadedModel !== targetModel) {
-                block.innerHTML = `🤖 <strong>#${aiTag}:</strong> Downloading AI weights (${targetModel})... This only happens once!`;
-                currentLoadedModel = targetModel;
+            // Step 1: Download & Load Model (Only happens once per model)
+            if (generator === null || window.currentLoadedModelId !== targetModel) {
+                window.isAIActive = false;
+                window.currentLoadedModelId = targetModel;
+                
                 try {
-                    generator = await pipeline('text-generation', currentLoadedModel, {
+                    generator = await pipeline('text-generation', window.currentLoadedModelId, {
                         progress_callback: (x) => {
                             if (x.status === 'progress') {
-                                block.innerHTML = `🤖 <strong>#${aiTag}:</strong> Downloading Model... ${Math.round(x.progress)}%`;
+                                // Live Download Indicator in both the block and header
+                                block.innerHTML = `[ ⬇️ DOWNLOADING AI WEIGHTS... ${Math.round(x.progress)}% ]`;
+                                window.updateHeaderUI('DOWNLOADING', x.progress);
                             } else if (x.status === 'ready') {
-                                block.innerHTML = `🤖 <strong>#${aiTag}:</strong> Model loaded into RAM. Generating response...`;
+                                // Final Memory Load
+                                block.innerHTML = `[ 🧠 LOADING INTO RAM... ]`;
+                                window.updateHeaderUI('LOADING');
                             }
                         }
                     });
+                    
+                    // Mark as successfully loaded into memory
+                    window.isAIActive = true;
+                    window.updateHeaderUI('ACTIVE');
+                    
+                    // If the user happens to be viewing the [ Models ] page while it finishes, update it
+                    if (document.getElementById('date-title').innerText === 'MODELS' && document.getElementById('mode-toggle').innerText.includes('Read')) {
+                        // Small hack to re-trigger the read preview generation so "ACTIVE" shows up
+                        document.getElementById('mode-toggle').click(); 
+                        document.getElementById('mode-toggle').click();
+                        document.getElementById('mode-toggle').click();
+                    }
+
                 } catch (e) {
-                    block.innerHTML = `❌ Error loading local model: ${e.message}`;
+                    window.isAIActive = false;
+                    window.currentLoadedModelId = null;
+                    window.updateHeaderUI('OFFLINE');
+                    block.classList.remove('ai-status-pulse');
+                    block.innerHTML = `[ ❌ ERROR LOADING MODEL: ${e.message} ]`;
                     return;
                 }
             }
 
-            block.innerHTML = `🤖 <strong>#${aiTag}</strong> is thinking...`;
+            // Step 2: Generation Indication
+            block.classList.add('ai-status-pulse');
+            block.innerHTML = `[ 🤖 #${aiTag.toUpperCase()} IS THINKING... (UI may pause) ]`;
+            window.updateHeaderUI('ACTIVE');
 
-            // --- BUILD THE INTELLIGENT SYSTEM PROMPT ---
-            let systemPrompt = "You are a helpful AI assistant inside a Brutalist notebook app. Be concise, direct, and helpful.";
+            // Build Intelligent System Prompt
+            let systemPrompt = "You are a helpful AI assistant inside a minimal notebook app. Be concise, direct, and helpful. Format your response in markdown.";
             
-            // 1. Inject the Master Persona (#me)
-            if (window.brutalNotesData['tag-me']) {
-                systemPrompt += "\n\n--- ABOUT THE USER ---\n" + window.brutalNotesData['tag-me'];
+            if (window.notes['tag-me']) {
+                systemPrompt += "\n\n--- ABOUT THE USER ---\n" + window.notes['tag-me'];
             }
-            
-            // 2. Inject the Specific Tag Instructions (e.g. #assistant, #writer, #coder)
-            if (window.brutalNotesData[`tag-${aiTag}`]) {
-                systemPrompt += `\n\n--- YOUR PERSONA/INSTRUCTIONS (${aiTag.toUpperCase()}) ---\n` + window.brutalNotesData[`tag-${aiTag}`];
+            if (window.notes[`tag-${aiTag}`]) {
+                systemPrompt += `\n\n--- YOUR PERSONA/INSTRUCTIONS (${aiTag.toUpperCase()}) ---\n` + window.notes[`tag-${aiTag}`];
             }
-
-            // 3. Inject Context (The last 3 diary notes)
             systemPrompt += "\n\n--- RECENT DIARY ENTRIES (For Context) ---\n" + window.getRecentContext();
 
-            // --- FORMAT PROMPT FOR SPECIFIC MODELS ---
+            // Format for Model Type
             let formattedPrompt = "";
-            if (currentLoadedModel.includes('Qwen')) {
-                // Qwen uses ChatML formatting
+            if (window.currentLoadedModelId.includes('Qwen')) {
                 formattedPrompt = `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`;
-            } else if (currentLoadedModel.includes('TinyLlama')) {
-                // TinyLlama custom tokens
+            } else if (window.currentLoadedModelId.includes('TinyLlama')) {
                 formattedPrompt = `<|system|>\n${systemPrompt}</s>\n<|user|>\n${userPrompt}</s>\n<|assistant|>\n`;
             } else {
                 formattedPrompt = `${systemPrompt}\n\nUser: ${userPrompt}\nAssistant:`;
             }
 
-            try {
-                // Run the local inference!
-                const output = await generator(formattedPrompt, {
-                    max_new_tokens: 250,    // Keep it snappy
-                    temperature: 0.7,       // Balanced creativity
-                    repetition_penalty: 1.1 // Prevent loops
-                });
+            // Step 3: Run Inference
+            setTimeout(async () => {
+                try {
+                    const output = await generator(formattedPrompt, {
+                        max_new_tokens: 200,    
+                        temperature: 0.7,       
+                        repetition_penalty: 1.1 
+                    });
 
-                let responseText = output[0].generated_text;
-                
-                // Strip the prompt formatting out so we only show the answer
-                if (responseText.startsWith(formattedPrompt)) {
-                    responseText = responseText.substring(formattedPrompt.length);
+                    let responseText = output[0].generated_text;
+                    
+                    // Clean up Transformers.js habit of repeating the prompt
+                    if (responseText.startsWith(formattedPrompt)) {
+                        responseText = responseText.substring(formattedPrompt.length);
+                    }
+                    
+                    // Replace the status block with the actual generated HTML
+                    const finalHTML = window.DOMPurify.sanitize(window.marked.parse(responseText.trim()));
+                    block.parentElement.innerHTML = `<strong>#${aiTag}:</strong><br>${finalHTML}`;
+                    
+                    // Force save the new data immediately
+                    window.flushLiveSave();
+
+                } catch(e) {
+                    block.classList.remove('ai-status-pulse');
+                    block.innerHTML = `[ ❌ INFERENCE ERROR: ${e.message} ]`;
                 }
-                
-                // Clean and format the response to safe HTML
-                const finalHTML = window.DOMPurify.sanitize(window.marked.parse(responseText.trim()));
-                
-                // Inject the generated response
-                block.innerHTML = `<strong>#${aiTag}:</strong><br>${finalHTML}`;
-                
-                // Force a sync to save the newly generated text as Markdown
-                window.flushLiveSave();
-
-            } catch(e) {
-                block.innerHTML = `❌ Inference Error: ${e.message}`;
-            }
+            }, 50);
         };
     </script>
 </body>
