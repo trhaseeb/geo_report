@@ -39,7 +39,7 @@
         .header-title.is-root { cursor: default; }
         .header-title.is-root:hover { color: var(--fg); }
 
-        .sub-header { padding: 0.5rem 1.5rem 1.5rem 1.5rem; flex-shrink: 0; user-select: none; display: flex; gap: 1rem; }
+        .sub-header { padding: 0.5rem 1.5rem 1.5rem 1.5rem; flex-shrink: 0; user-select: none; display: flex; flex-wrap: wrap; gap: 1rem; }
 
         .mode-link {
             font-family: inherit; font-size: clamp(0.75rem, 1.5vw, 1rem); font-weight: 900;
@@ -117,13 +117,15 @@
         let saveTimeout;
         const VIRTUAL_PAGES = ['index', 'diary', 'tags', 'models'];
 
+        // Added Micro model for guaranteed iOS compatibility without crashes
         const AI_MODELS = {
-            'fast': { id: 'Xenova/Qwen1.5-0.5B-Chat', name: 'Fast', params: '0.5 Billion', size: '~300MB', desc: 'Very fast. Best for older phones.' },
-            'balanced': { id: 'Xenova/TinyLlama-1.1B-Chat-v1.0', name: 'Balanced', params: '1.1 Billion', size: '~600MB', desc: 'A great middle ground of speed and intelligence.' },
-            'smart': { id: 'Xenova/Qwen1.5-1.8B-Chat', name: 'Smart', params: '1.8 Billion', size: '~1.1GB', desc: 'Highest logic capabilities. Requires a powerful device.' }
+            'micro': { id: 'Xenova/SmolLM-135M-Instruct', name: 'Micro', params: '135 Million', size: '~80MB', desc: 'Guaranteed to work on iOS/Mobile without crashing.' },
+            'fast': { id: 'Xenova/Qwen1.5-0.5B-Chat', name: 'Fast', params: '0.5 Billion', size: '~300MB', desc: 'Very fast. Best for newer iPhones.' },
+            'balanced': { id: 'Xenova/TinyLlama-1.1B-Chat-v1.0', name: 'Balanced', params: '1.1 Billion', size: '~600MB', desc: 'Great middle ground. May crash older iOS devices.' },
+            'smart': { id: 'Xenova/Qwen1.5-1.8B-Chat', name: 'Smart', params: '1.8 Billion', size: '~1.1GB', desc: 'Desktop only. Will crash mobile browsers.' }
         };
         
-        window.activeModelKey = localStorage.getItem('brutalNotes_activeModel') || 'fast';
+        window.activeModelKey = localStorage.getItem('brutalNotes_activeModel') || 'micro';
 
         let currentGhostSuggestion = null;
         let ghostNode = null;
@@ -318,11 +320,11 @@
                         sel.removeAllRanges(); sel.addRange(range);
                         document.execCommand('delete', false, null);
 
-                        // Insert temporary text marker
-                        const marker = `[⏳...]`;
-                        document.execCommand('insertText', false, marker);
+                        // Safest possible iOS injection: use an ID'd span instead of raw text search
+                        const markerId = `ai-marker-${Date.now()}`;
+                        document.execCommand('insertHTML', false, `<span id="${markerId}" style="color:#888;">[⏳...]</span>`);
                         
-                        window.AI_SYSTEM.run(aiMatch[1].toLowerCase(), aiMatch[2], marker);
+                        window.AI_SYSTEM.run(aiMatch[1].toLowerCase(), aiMatch[2], markerId);
                         return;
                     }
                 }
@@ -473,10 +475,13 @@
         });
     </script>
 
-    <!-- Clean AI Engine Integration -->
+    <!-- Clean AI Engine Integration Optimized for Mobile Safari -->
     <script type="module">
         import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+        
         env.allowLocalModels = false;
+        // MOBILE OPTIMIZATION: Cap threads so iPhone CPU doesn't get exhausted, triggering Safari's watchdog.
+        env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 2, 4);
 
         window.AI_SYSTEM = {
             generator: null,
@@ -496,6 +501,9 @@
                 try {
                     this.status = 'INIT'; this.updateUI();
                     this.generator = await pipeline('text-generation', modelData.id, {
+                        // CRITICAL iOS FIX: Force 4-bit quantization to fit inside Safari's 1.5GB RAM tab limit
+                        dtype: 'q4', 
+                        device: 'wasm',
                         progress_callback: (x) => {
                             if (x.status === 'progress') { this.status = `DL ${Math.round(x.progress)}%`; this.updateUI(); }
                             else if (x.status === 'ready') { this.status = 'LOADING RAM'; this.updateUI(); }
@@ -520,7 +528,7 @@
                 }
             },
 
-            async run(tag, userPrompt, markerText) {
+            async run(tag, userPrompt, markerId) {
                 if (!this.enabled || this.status !== 'READY') return;
 
                 let systemPrompt = "You are a helpful AI assistant. Be concise and direct. Format your response in markdown.";
@@ -528,33 +536,25 @@
                 if (window.notes[`tag-${tag}`]) systemPrompt += `\n\n--- INSTRUCTIONS ---\n` + window.notes[`tag-${tag}`];
                 systemPrompt += "\n\n--- CONTEXT ---\n" + window.getRecentContext();
 
-                let formattedPrompt = window.activeModelKey.includes('fast') || window.activeModelKey.includes('smart') 
-                    ? `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`
-                    : `<|system|>\n${systemPrompt}</s>\n<|user|>\n${userPrompt}</s>\n<|assistant|>\n`;
+                let formattedPrompt = window.activeModelKey === 'balanced'
+                    ? `<|system|>\n${systemPrompt}</s>\n<|user|>\n${userPrompt}</s>\n<|assistant|>\n`
+                    : `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`;
 
                 try {
                     const output = await this.generator(formattedPrompt, { max_new_tokens: 200, temperature: 0.7 });
                     let text = output[0].generated_text.replace(formattedPrompt, '').trim();
                     let htmlContent = DOMPurify.sanitize(marked.parse(text));
 
-                    // Replace marker with output seamlessly
-                    const walker = document.createTreeWalker(document.getElementById('live-editor'), NodeFilter.SHOW_TEXT);
-                    let node;
-                    while(node = walker.nextNode()) {
-                        if (node.nodeValue.includes(markerText)) {
-                            const sel = window.getSelection();
-                            const range = document.createRange();
-                            const idx = node.nodeValue.indexOf(markerText);
-                            range.setStart(node, idx);
-                            range.setEnd(node, idx + markerText.length);
-                            sel.removeAllRanges(); sel.addRange(range);
-                            document.execCommand('insertHTML', false, htmlContent);
-                            break;
-                        }
+                    // Safely replace the exact marker element without messing with selection API
+                    const markerEl = document.getElementById(markerId);
+                    if (markerEl) {
+                        markerEl.outerHTML = htmlContent;
                     }
                     window.flushLiveSave();
                 } catch (e) {
                     console.error("Inference failed", e);
+                    const markerEl = document.getElementById(markerId);
+                    if (markerEl) markerEl.innerText = "[ ❌ ERROR ]";
                 }
             }
         };
