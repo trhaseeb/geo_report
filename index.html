@@ -163,7 +163,6 @@
             display: none !important;
         }
 
-
         /* --- VANILLA PROSE EDITOR --- */
         .workspace-pane {
             flex: 1;
@@ -373,6 +372,40 @@
             background: var(--text-color);
             transition: width 0.1s;
         }
+
+        /* Ghost Autocomplete Text Styling */
+        .ghost-text {
+            color: var(--muted-text);
+            user-select: none;
+            opacity: 0.6;
+            cursor: pointer;
+            border-bottom: 1px dashed var(--muted-text);
+        }
+
+        /* Sliders for AI Control */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--text-color);
+            cursor: pointer;
+            margin-top: -8px; 
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(128, 128, 128, 0.3);
+            border-radius: 2px;
+        }
     </style>
 </head>
 
@@ -402,19 +435,71 @@
         import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
         // ============================================================================
-        // STATE & VIRTUAL PAGES
+        // STATE & VIRTUAL PAGES (OPTIMIZED ARCHITECTURE)
         // ============================================================================
         const modes = ['Live', 'Raw', 'Read'];
         let currentModeIndex = 0;
-        let notes = {};
         let currentKey = '';
         let saveTimeout;
         const VIRTUAL_PAGES = ['index', 'days', 'personas', 'models'];
+        let virtualPagesData = {}; // Separating memory so we don't load the DB into RAM
         let db = null;
 
-        // ML Engine State
+        // Autocomplete State
+        let currentGhostSuggestion = null;
+        let ghostNode = null;
+
+        function removeGhost() {
+            if (ghostNode && ghostNode.parentNode) {
+                ghostNode.parentNode.removeChild(ghostNode);
+            }
+            ghostNode = null;
+            currentGhostSuggestion = null;
+        }
+
+        async function acceptGhostSuggestion() {
+            if (!currentGhostSuggestion) return;
+            const suggestion = currentGhostSuggestion;
+            
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const node = sel.focusNode;
+                const offset = sel.focusOffset;
+                
+                if (node && node.nodeType === Node.TEXT_NODE) {
+                    const textBefore = node.textContent.substring(0, offset);
+                    const match = textBefore.match(/(?:^|\s)(#[a-zA-Z0-9_.]+)$/);
+                    
+                    removeGhost();
+                    
+                    if (match) {
+                        const partial = match[1];
+                        const range = document.createRange();
+                        range.setStart(node, offset - partial.length);
+                        range.setEnd(node, offset);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        
+                        const baseTag = suggestion.substring(1).split('.')[0].toLowerCase();
+                        document.execCommand('insertHTML', false, `<a href="#tag-${baseTag}">${suggestion}</a>&nbsp;`);
+                        
+                        clearTimeout(saveTimeout);
+                        saveTimeout = setTimeout(flushLiveSave, 1500); // Debounced longer to protect CPU
+                    }
+                } else {
+                    removeGhost();
+                }
+            } else {
+                removeGhost();
+            }
+        }
+
+        // ML Engine State & User Settings
         let aiEngine = null;
         let aiState = 'off'; // off, loading, ready
+
+        let aiMaxContext = parseInt(localStorage.getItem('aiMaxContext')) || 1024;
+        let aiMaxTokens = parseInt(localStorage.getItem('aiMaxTokens')) || 256;
 
         const AI_MODELS = [
             { id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", name: "Qwen2.5 (0.5B)", size: "~350MB", desc: "Super tiny, fast loading. Excellent reasoning for its micro size." },
@@ -427,7 +512,7 @@
         let selectedModel = localStorage.getItem('selectedModel') || AI_MODELS[0].id;
 
         // ============================================================================
-        // UTILS
+        // UTILS & SQL QUERY HELPERS
         // ============================================================================
         function getLocalYYYYMMDD(dateObj) {
             const y = dateObj.getFullYear();
@@ -448,6 +533,12 @@
 
         const todayStr = getLocalYYYYMMDD(new Date());
 
+        // CPU Optimization: SQL Indexed Lookup instead of Javascript Loops
+        async function getAllKnownTags() {
+            const res = await db.query(`SELECT DISTINCT tag FROM note_tags`);
+            return res.rows.map(r => '#' + r.tag);
+        }
+
         // ============================================================================
         // DATABASE IMPLEMENTATION (PGLITE)
         // ============================================================================
@@ -463,6 +554,17 @@
                     ON CONFLICT (id) DO UPDATE 
                     SET content = EXCLUDED.content, updated_at = CURRENT_TIMESTAMP;
                 `, [id, content]);
+
+                // Update Tag Index
+                await db.query(`DELETE FROM note_tags WHERE note_id = $1`, [id]);
+                const tags = new Set();
+                const matches = content.match(/(?:^|\s)(#[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)?)\b/g);
+                if (matches) {
+                    matches.forEach(m => tags.add(m.trim().substring(1).toLowerCase()));
+                }
+                for (let tag of tags) {
+                    await db.query(`INSERT INTO note_tags (note_id, tag) VALUES ($1, $2)`, [id, tag]);
+                }
             } catch (err) {
                 console.error("Failed to save note to DB:", err);
             }
@@ -486,21 +588,37 @@
 
         const turndownService = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-', codeBlockStyle: 'fenced' });
         turndownService.addRule('hashtag', { filter: (n) => n.nodeName === 'A' && n.getAttribute('href')?.startsWith('#tag-'), replacement: (c) => c });
-
+        
+        turndownService.addRule('ghostText', {
+            filter: function (node, options) {
+                return node.nodeName === 'SPAN' && node.classList.contains('ghost-text');
+            },
+            replacement: function (content, node) { return ''; }
+        });
 
         function parseMD(text) {
             return DOMPurify.sanitize(marked.parse(text), {
-                ADD_TAGS: ['table', 'th', 'tr', 'td', 'thead', 'tbody', 'input'],
-                ADD_ATTR: ['type', 'checked', 'disabled']
+                ADD_TAGS: ['table', 'th', 'tr', 'td', 'thead', 'tbody', 'input', 'label', 'span'],
+                ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'min', 'max', 'step', 'value', 'style']
             });
         }
 
-        function getDynamicHashtagContent(baseTagName) {
-            let groups = { _base: [] };
-            const dayKeys = Object.keys(notes).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse();
+        // CPU Optimization: Querying the Relational Table instead of the whole database
+        async function getDynamicHashtagContent(baseTagName) {
+            const res = await db.query(`
+                SELECT DISTINCT notes.id, notes.content 
+                FROM notes 
+                JOIN note_tags ON notes.id = note_tags.note_id 
+                WHERE (note_tags.tag = $1 OR note_tags.tag LIKE $2)
+                AND notes.id LIKE '____-__-__'
+                ORDER BY notes.id DESC
+            `, [baseTagName, `${baseTagName}.%`]);
 
-            dayKeys.forEach(day => {
-                const content = notes[day] || '';
+            let groups = { _base: [] };
+
+            res.rows.forEach(row => {
+                const day = row.id;
+                const content = row.content || '';
                 const blocks = content.split('\n\n');
                 blocks.forEach(block => {
                     const regex = new RegExp(`(?:^|\\s)#${baseTagName}(?:\\.([a-zA-Z0-9_]+))?\\b`, 'gi');
@@ -541,8 +659,6 @@
             return tagMarkdown;
         }
 
-
-
         // ============================================================================
         // EDITOR & ROUTING
         // ============================================================================
@@ -560,17 +676,21 @@
         async function flushLiveSave() {
             if (modes[currentModeIndex] !== 'Live' || VIRTUAL_PAGES.includes(currentKey)) return;
             const keyToSave = currentKey;
+            
             let markdown = turndownService.turndown(liveEditor.innerHTML).replace(/\u00A0/g, ' ');
             if (!markdown.trim() || markdown === '\\') markdown = '';
-            if (notes[keyToSave] === markdown) return; // no-op if unchanged
+            
+            const res = await db.query(`SELECT content FROM notes WHERE id = $1`, [keyToSave]);
+            const oldContent = res.rows.length > 0 ? res.rows[0].content : null;
+            if (oldContent === markdown) return; 
+            
             statusEl.textContent = 'db.saving';
-            notes[keyToSave] = markdown;
             await saveNoteToDB(keyToSave, markdown);
             statusEl.textContent = 'db.saved';
             resetStatus();
         }
 
-        function updateModeUI() {
+        async function updateModeUI() {
             const mode = modes[currentModeIndex];
             modeToggle.innerText = `[ mode: ${mode.toLowerCase()} ]`;
 
@@ -584,7 +704,13 @@
             rawEditor.classList.add('hidden');
             readPreview.classList.add('hidden');
 
-            let rawMarkdown = notes[currentKey] || '';
+            let rawMarkdown = '';
+            if (VIRTUAL_PAGES.includes(currentKey)) {
+                rawMarkdown = virtualPagesData[currentKey] || '';
+            } else {
+                const res = await db.query(`SELECT content FROM notes WHERE id = $1`, [currentKey]);
+                if (res.rows.length > 0) rawMarkdown = res.rows[0].content;
+            }
 
             if (mode === 'Live') {
                 liveEditor.innerHTML = parseMD(rawMarkdown);
@@ -595,68 +721,102 @@
                 rawEditor.classList.remove('hidden');
                 if (!VIRTUAL_PAGES.includes(currentKey)) rawEditor.focus();
             } else if (mode === 'Read') {
-                if (currentKey.startsWith('tag-')) rawMarkdown += getDynamicHashtagContent(currentKey.substring(4));
+                if (currentKey.startsWith('tag-')) {
+                    rawMarkdown += await getDynamicHashtagContent(currentKey.substring(4));
+                }
                 readPreview.innerHTML = parseMD(rawMarkdown);
                 readPreview.classList.remove('hidden');
             }
         }
 
-        function loadIndex() { flushLiveSave(); currentKey = 'index'; notes['index'] = `*Root Directory*\n\n- [Days](#days)\n- [Personas](#personas)\n- [Models](#models)`; dateTitle.innerText = 'INDEX'; dateTitle.classList.add('is-root'); currentModeIndex = 2; updateModeUI(); }
+        async function loadIndex() { 
+            await flushLiveSave(); 
+            currentKey = 'index'; 
+            virtualPagesData['index'] = `*Root Directory*\n\n- [Days](#days)\n- [Personas](#personas)\n- [Models](#models)`; 
+            dateTitle.innerText = 'INDEX'; 
+            dateTitle.classList.add('is-root'); 
+            currentModeIndex = 2; 
+            await updateModeUI(); 
+        }
 
-
-
-        function loadDays() {
-            flushLiveSave();
+        async function loadDays() {
+            await flushLiveSave();
             currentKey = 'days';
-            const links = Object.keys(notes).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().map(k => `- [${formatDateDisplay(k)}](#${k})`).join('\n');
-            notes['days'] = `*All daily notes.*\n\n${links || '*No notes yet.*'}`;
+            const res = await db.query(`SELECT id FROM notes WHERE id LIKE '____-__-__' ORDER BY id DESC`);
+            const links = res.rows.map(r => `- [${formatDateDisplay(r.id)}](#${r.id})`).join('\n');
+            virtualPagesData['days'] = `*All daily notes.*\n\n${links || '*No notes yet.*'}`;
             dateTitle.innerText = 'DAYS';
             dateTitle.classList.remove('is-root');
             currentModeIndex = 2;
-            updateModeUI();
+            await updateModeUI();
         }
 
-        function loadPersonas() {
-            flushLiveSave();
+        async function loadPersonas() {
+            await flushLiveSave();
             currentKey = 'personas';
-            const tags = new Set();
-            Object.keys(notes).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k => {
-                const matches = notes[k].match(/(?:^|\s)#([a-zA-Z0-9_]+)(?:\.[a-zA-Z0-9_]+)?\b/g);
-                if (matches) matches.forEach(m => tags.add(m.trim().substring(1).toLowerCase().split('.')[0]));
+            const res = await db.query(`SELECT DISTINCT tag FROM note_tags ORDER BY tag`);
+            const tagLinks = res.rows.map(r => {
+                 const baseTag = r.tag.split('.')[0];
+                 return `- [#${baseTag}](#tag-${baseTag})`;
             });
-            const tagLinks = Array.from(tags).sort().map(t => `- [#${t}](#tag-${t})`).join('\n') || "*No personas used yet.*";
-            notes['personas'] = `*All personas used across notes.*\n\n${tagLinks}`;
+            const uniqueLinks = Array.from(new Set(tagLinks)).join('\n');
+            virtualPagesData['personas'] = `*All personas used across notes.*\n\n${uniqueLinks || "*No personas used yet.*"}`;
             dateTitle.innerText = 'PERSONAS';
             dateTitle.classList.remove('is-root');
             currentModeIndex = 2;
-            updateModeUI();
+            await updateModeUI();
         }
 
-        function loadModels() {
-            flushLiveSave(); currentKey = 'models';
-            let md = `*Select a local AI model to download and run securely inside your browser.*
-
-*Note: Larger models take longer to download and require more device RAM.*
-
-`;
+        async function loadModels() {
+            await flushLiveSave(); 
+            currentKey = 'models';
+            let md = `*Select a local AI model to download and run securely inside your browser.*\n\n`;
 
             AI_MODELS.forEach(m => {
                 const isSelected = m.id === selectedModel ? " **(Active)**" : "";
                 md += `### [${m.name}](#model-${m.id})${isSelected}\n- **Size**: ${m.size}\n- **Info**: ${m.desc}\n\n`;
             });
 
-            notes['models'] = md;
+            md += `\n\n---\n\n## 🛡️ AI Mobile Guardrails\n*Phones aggressively close tabs that use too much memory. Lower these settings if your browser crashes frequently.*\n\n`;
+            md += `<label style="font-weight:600; font-size: 0.9em;">Max Context Window (Memory Limit): <span id="ctx-val">${aiMaxContext}</span></label><br>\n`;
+            md += `<input type="range" id="ai-setting-ctx" min="256" max="4096" step="256" value="${aiMaxContext}" style="margin-bottom: 1.5em;"><br>\n\n`;
+            md += `<label style="font-weight:600; font-size: 0.9em;">Max Output Generation: <span id="out-val">${aiMaxTokens}</span> tokens</label><br>\n`;
+            md += `<input type="range" id="ai-setting-out" min="64" max="1024" step="64" value="${aiMaxTokens}">\n`;
+
+            virtualPagesData['models'] = md;
             dateTitle.innerText = 'MODELS'; dateTitle.classList.remove('is-root');
-            currentModeIndex = 2; updateModeUI();
+            currentModeIndex = 2; 
+            await updateModeUI();
         }
 
-        function loadNote(key) {
-            flushLiveSave();
-            currentKey = key;
-            if (notes[key] === undefined) {
-                notes[key] = (key.startsWith('tag-') || key.startsWith('sys-')) ? `*Write instructions here.*` : '';
-                saveNoteToDB(key, notes[key]);
+        document.addEventListener('input', (e) => {
+            if (e.target.id === 'ai-setting-ctx') {
+                aiMaxContext = parseInt(e.target.value);
+                localStorage.setItem('aiMaxContext', aiMaxContext);
+                const valDisplay = document.getElementById('ctx-val');
+                if (valDisplay) valDisplay.innerText = aiMaxContext;
+                if (aiState === 'ready') turnOffAI(); 
             }
+            if (e.target.id === 'ai-setting-out') {
+                aiMaxTokens = parseInt(e.target.value);
+                localStorage.setItem('aiMaxTokens', aiMaxTokens);
+                const valDisplay = document.getElementById('out-val');
+                if (valDisplay) valDisplay.innerText = aiMaxTokens;
+            }
+        });
+
+        async function loadNote(key) {
+            await flushLiveSave();
+            currentKey = key;
+            
+            if (!VIRTUAL_PAGES.includes(key)) {
+                const res = await db.query(`SELECT id FROM notes WHERE id = $1`, [key]);
+                if (res.rows.length === 0) {
+                    const defaultText = (key.startsWith('tag-') || key.startsWith('sys-')) ? `*Write instructions here.*` : '';
+                    await saveNoteToDB(key, defaultText);
+                }
+            }
+
             dateTitle.classList.remove('is-root');
             if (key.startsWith('tag-')) {
                 dateTitle.innerText = '#' + key.substring(4).toUpperCase();
@@ -668,7 +828,7 @@
                 dateTitle.innerText = formatDateDisplay(key);
                 if (currentModeIndex === 2) currentModeIndex = 0;
             }
-            updateModeUI();
+            await updateModeUI();
         }
 
         // =========================================================================
@@ -693,12 +853,17 @@
                 aiEngine.setInitProgressCallback((info) => {
                     updateAIBadge(`loading ${Math.round(info.progress * 100)}%`, 'loading');
                 });
-                await aiEngine.reload(selectedModel);
+                
+                const chatOpts = {
+                    context_window_size: aiMaxContext
+                };
+                await aiEngine.reload(selectedModel, chatOpts);
+                
                 updateAIBadge('ready', 'ready');
             } catch (err) {
                 console.error(err);
                 updateAIBadge('error', 'off');
-                alert("Failed to load AI model. Check console.");
+                alert(`Failed to load AI model. If it crashed, try lowering the Context Window setting in Models.\n\nError: ${err.message}`);
             }
         }
 
@@ -710,20 +875,15 @@
             updateAIBadge('off', 'off');
         }
 
-        // --- Prompt Building Helpers ---
-
-        // Build the system prompt for a persona — just the raw persona note, nothing more.
-        function buildPersonaContext(tag) {
-            const raw = notes[`tag-${tag}`] || '';
-            // Strip anything after the '---' separator (mention aggregation view)
+        async function buildPersonaContext(tag) {
+            const res = await db.query(`SELECT content FROM notes WHERE id = $1`, [`tag-${tag}`]);
+            const raw = res.rows.length > 0 ? res.rows[0].content : '';
             return raw.split(/\n---\n/)[0].trim();
         }
 
-        // --- AI Execution ---
-
         async function executePersona(commandText, tagTrigger, placeholderId) {
             const tag = tagTrigger.substring(1).split('.')[0].toLowerCase();
-            const systemPrompt = buildPersonaContext(tag);
+            const systemPrompt = await buildPersonaContext(tag);
             const placeholderNode = document.getElementById(placeholderId);
             const textNode = placeholderNode?.querySelector('.ai-status-text');
 
@@ -740,7 +900,12 @@
                     { role: "user", content: commandText }
                 ];
 
-                const chunks = await aiEngine.chat.completions.create({ messages, stream: true });
+                const chunks = await aiEngine.chat.completions.create({ 
+                    messages, 
+                    stream: true,
+                    max_tokens: aiMaxTokens
+                });
+                
                 let fullResponse = "";
                 placeholderNode.outerHTML = `<div id="${placeholderId}-stream"></div>`;
                 const streamNode = document.getElementById(`${placeholderId}-stream`);
@@ -755,25 +920,23 @@
                         lastRender = now;
                     }
                 }
-                if (streamNode) streamNode.innerHTML = parseMD(fullResponse); // final render
+                if (streamNode) streamNode.innerHTML = parseMD(fullResponse); 
 
-                if (streamNode) { streamNode.outerHTML = parseMD(fullResponse); flushLiveSave(); }
+                if (streamNode) { streamNode.outerHTML = parseMD(fullResponse); await flushLiveSave(); }
                 updateAIBadge('ready', 'ready');
 
             } catch (error) {
                 console.error("AI Gen Error:", error);
                 if (placeholderNode) {
-                    placeholderNode.innerHTML = `<span style="color:#cc0000; font-weight:bold;">[AI Request Failed] ${error.message}</span>`;
+                    placeholderNode.innerHTML = `<span style="color:#cc0000; font-weight:bold;">[AI Request Failed] ${error.message}<br><br><small>Tip: Try lowering the Context Window in the models page.</small></span>`;
                 }
                 updateAIBadge('error', 'ready');
             }
         }
 
-
-
         // --- Event Listeners ---
-        modeToggle.addEventListener('click', (e) => {
-            e.preventDefault(); flushLiveSave(); currentModeIndex = (currentModeIndex + 1) % modes.length; updateModeUI();
+        modeToggle.addEventListener('click', async (e) => {
+            e.preventDefault(); await flushLiveSave(); currentModeIndex = (currentModeIndex + 1) % modes.length; await updateModeUI();
         });
 
         aiToggle.addEventListener('click', (e) => {
@@ -800,9 +963,36 @@
             }
         });
 
-        liveEditor.addEventListener('keydown', (e) => {
-            // AI TRIGGER INTERCEPTOR ('/')
+        function handleEditorTap(e) {
+            if (e.target && e.target.classList.contains('ghost-text')) {
+                e.preventDefault(); 
+                e.stopPropagation();
+                acceptGhostSuggestion();
+            } else {
+                removeGhost();
+            }
+        }
+
+        liveEditor.addEventListener('mousedown', handleEditorTap);
+        liveEditor.addEventListener('touchstart', handleEditorTap, { passive: false });
+        liveEditor.addEventListener('blur', () => {
+            removeGhost();
+            flushLiveSave();
+        });
+
+        liveEditor.addEventListener('keydown', async (e) => {
+            if ((e.key === 'Tab' || e.key === 'ArrowRight') && currentGhostSuggestion) {
+                e.preventDefault();
+                await acceptGhostSuggestion();
+                return;
+            }
+
+            if (e.key === 'Escape' || e.key.startsWith('Arrow')) {
+                removeGhost();
+            }
+
             if (e.key === '/') {
+                removeGhost();
                 const sel = window.getSelection();
                 if (sel.rangeCount > 0 && sel.focusNode.nodeType === Node.TEXT_NODE) {
                     const text = sel.focusNode.textContent.substring(0, sel.focusOffset);
@@ -839,6 +1029,7 @@
             }
 
             if (e.key === ' ') {
+                removeGhost();
                 const sel = window.getSelection();
                 if (sel.rangeCount > 0 && sel.focusNode.nodeType === Node.TEXT_NODE) {
                     const text = sel.focusNode.textContent.substring(0, sel.focusOffset);
@@ -851,7 +1042,8 @@
                         range.setEnd(sel.focusNode, sel.focusOffset);
                         sel.removeAllRanges(); sel.addRange(range);
                         document.execCommand('insertHTML', false, `<a href="#tag-${tagMatch[1].substring(1).split('.')[0].toLowerCase()}">${tagMatch[1]}</a>&nbsp;`);
-                        clearTimeout(saveTimeout); saveTimeout = setTimeout(flushLiveSave, 50);
+                        
+                        clearTimeout(saveTimeout); saveTimeout = setTimeout(flushLiveSave, 1500);
                         return;
                     }
 
@@ -868,27 +1060,62 @@
                         else if (text === '-') document.execCommand('insertUnorderedList', false, null);
                         else document.execCommand('insertOrderedList', false, null);
 
-                        clearTimeout(saveTimeout); saveTimeout = setTimeout(flushLiveSave, 50);
+                        clearTimeout(saveTimeout); saveTimeout = setTimeout(flushLiveSave, 1500);
                     }
                 }
             }
         });
 
-        liveEditor.addEventListener('input', () => {
+        liveEditor.addEventListener('input', async () => {
+            removeGhost(); 
+
             clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(flushLiveSave, 500);
+            saveTimeout = setTimeout(flushLiveSave, 1500);
+
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const node = sel.focusNode;
+            if (!node || node.nodeType !== Node.TEXT_NODE) return;
+
+            const textBefore = node.textContent.substring(0, sel.focusOffset);
+            const match = textBefore.match(/(?:^|\s)(#[a-zA-Z0-9_.]+)$/);
+            
+            if (match) {
+                const typingTag = match[1];
+                if (typingTag.length < 2) return;
+
+                const allTags = await getAllKnownTags();
+                const suggestion = allTags.find(t => t.toLowerCase().startsWith(typingTag.toLowerCase()) && t.length > typingTag.length);
+                
+                if (suggestion) {
+                    const remainder = suggestion.substring(typingTag.length);
+                    currentGhostSuggestion = typingTag + remainder; 
+                    
+                    ghostNode = document.createElement('span');
+                    ghostNode.className = 'ghost-text';
+                    ghostNode.textContent = remainder;
+                    ghostNode.contentEditable = 'false';
+                    
+                    const range = sel.getRangeAt(0);
+                    range.insertNode(ghostNode);
+                    range.setStartBefore(ghostNode);
+                    range.collapse(true);
+                    
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+            }
         });
 
         rawEditor.addEventListener('input', () => {
             if (modes[currentModeIndex] !== 'Raw' || VIRTUAL_PAGES.includes(currentKey)) return;
-            notes[currentKey] = rawEditor.value;
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(async () => {
                 statusEl.textContent = 'db.saving';
-                await saveNoteToDB(currentKey, notes[currentKey]);
+                await saveNoteToDB(currentKey, rawEditor.value);
                 statusEl.textContent = 'db.saved';
                 resetStatus();
-            }, 500);
+            }, 1500);
         });
 
         function handleLinkClick(e) {
@@ -902,9 +1129,9 @@
                         selectedModel = href.substring(7);
                         localStorage.setItem('selectedModel', selectedModel);
                         if (aiState !== 'off') {
-                            turnOnAI(); // reload with new model
+                            turnOnAI(); 
                         }
-                        loadModels(); // refresh UI
+                        loadModels(); 
                     }
                     else if (href === '#models') loadModels();
                     else if (href === '#days') loadDays();
@@ -918,11 +1145,11 @@
         liveEditor.addEventListener('click', handleLinkClick);
         readPreview.addEventListener('click', handleLinkClick);
 
-        dateTitle.addEventListener('click', () => {
+        dateTitle.addEventListener('click', async () => {
             if (currentKey === 'index') return;
-            else if (['days', 'personas', 'models', 'system'].includes(currentKey)) loadIndex();
-            else if (currentKey.startsWith('tag-') || currentKey.startsWith('sys-')) loadPersonas();
-            else if (/^\d{4}-\d{2}-\d{2}$/.test(currentKey)) loadDays();
+            else if (['days', 'personas', 'models', 'system'].includes(currentKey)) await loadIndex();
+            else if (currentKey.startsWith('tag-') || currentKey.startsWith('sys-')) await loadPersonas();
+            else if (/^\d{4}-\d{2}-\d{2}$/.test(currentKey)) await loadDays();
         });
 
         // ============================================================================
@@ -932,6 +1159,7 @@
             try {
                 db = new PGlite('idb://notes-app-v2-db', { extensions: { vector } });
 
+                // ARCHITECTURE INITIALIZATION: Note the pure, lean setup
                 await db.exec(`
                     CREATE EXTENSION IF NOT EXISTS vector;
                     CREATE TABLE IF NOT EXISTS notes (
@@ -940,20 +1168,18 @@
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         embedding vector(384)
                     );
+                    CREATE TABLE IF NOT EXISTS note_tags (
+                        note_id TEXT,
+                        tag TEXT,
+                        PRIMARY KEY (note_id, tag),
+                        FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+                    );
                 `);
 
                 statusEl.textContent = 'db.ready';
 
-                const allNotes = await db.query(`SELECT id, content FROM notes;`);
-                allNotes.rows.forEach(row => {
-                    notes[row.id] = row.content;
-                });
-
-
-                // No default personas seeded — each persona is defined by the user in its tag note.
-
                 liveEditor.setAttribute('contenteditable', 'true');
-                loadNote(todayStr);
+                await loadNote(todayStr);
 
             } catch (error) {
                 console.error("Database initialization failed:", error);
